@@ -31,7 +31,7 @@ export interface TD {tag:"TD"};
 export interface LR {tag:"LR"};
 export interface Graph {tag:"Graph"; dir: Dir, graphContent: graphContent}
 //Header needed????
-export interface Header {tag: "Header"; graph: Graph; edges: Edge[]}
+//export interface Header {tag: "Header"; graph: Graph; edges: Edge[]}
 export interface AtomicGraph {tag: "AtomicGraph"; node: NodeDecl; }
 export interface CompoundGraph {tag: "CompoundGraph"; edges: Edge[]}
 export interface Edge {tag: "Edge"; from: Node, to: Node, label?: EdgeLabel}
@@ -41,72 +41,49 @@ export interface EdgeLabel {tag: "EdgeLabel"; label: string}
 
 
 // Type value constructors for disjoint types
-export const makeProgram = (exps: Exp[]): Program => ({tag: "Program", exps: exps});
-export const makeDefineExp = (v: VarDecl, val: CExp): DefineExp =>
-    ({tag: "DefineExp", var: v, val: val});
-export const makeNumExp = (n: number): NumExp => ({tag: "NumExp", val: n});
-export const makeBoolExp = (b: boolean): BoolExp => ({tag: "BoolExp", val: b});
-export const makeStrExp = (s: string): StrExp => ({tag: "StrExp", val: s});
-export const makePrimOp = (op: string): PrimOp => ({tag: "PrimOp", op: op});
-export const makeVarRef = (v: string): VarRef => ({tag: "VarRef", var: v});
-export const makeVarDecl = (v: string): VarDecl => ({tag: "VarDecl", var: v});
-export const makeAppExp = (rator: CExp, rands: CExp[]): AppExp =>
-    ({tag: "AppExp", rator: rator, rands: rands});
-// L2
-export const makeIfExp = (test: CExp, then: CExp, alt: CExp): IfExp =>
-    ({tag: "IfExp", test: test, then: then, alt: alt});
-export const makeProcExp = (args: VarDecl[], body: CExp[]): ProcExp =>
-    ({tag: "ProcExp", args: args, body: body});
-export const makeBinding = (v: string, val: CExp): Binding =>
-    ({tag: "Binding", var: makeVarDecl(v), val: val});
-export const makeLetExp = (bindings: Binding[], body: CExp[]): LetExp =>
-    ({tag: "LetExp", bindings: bindings, body: body});
-// L3
-export const makeLitExp = (val: SExpValue): LitExp =>
-    ({tag: "LitExp", val: val});
-// L4
-export const makeLetrecExp = (bindings: Binding[], body: CExp[]): LetrecExp =>
-    ({tag: "LetrecExp", bindings: bindings, body: body});
-export const makeSetExp = (v: VarRef, val: CExp): SetExp =>
-    ({tag: "SetExp", var: v, val: val});
+export const makeTD = (): TD => ({tag: "TD"});
+export const makeLR = (): LR => ({tag: "LR"});
+export const makeGraph = (dir: Dir, graphContent: graphContent): Graph =>
+    ({tag: "Graph", dir: dir, graphContent: graphContent});
+export const makeAtomicGraph = (node: NodeDecl): AtomicGraph => 
+    ({tag: "AtomicGraph", node: node});
+export const makeCompoundGraph = (edges: Edge[]): CompoundGraph =>
+    ({tag: "CompoundGraph", edges: edges});
+export const makeEdge = (from: Node, to: Node, label?: EdgeLabel): Edge =>
+    ({tag: "Edge", from: from, to: to, label: label});
+export const makeNodeDecl = (id: string, label: string): NodeDecl =>
+    ({tag: "NodeDecl", id: id, label: label});
+export const makeNodeRef = (id: string): NodeRef =>
+    ({tag: "NodeRef", id: id});
+export const makeEdgeLabel = (label:string): EdgeLabel =>
+    ({tag:"EdgeLabel", label: label});
 
-// Type predicates for disjoint types
-export const isProgram = (x: any): x is Program => x.tag === "Program";
-export const isDefineExp = (x: any): x is DefineExp => x.tag === "DefineExp";
-
-export const isNumExp = (x: any): x is NumExp => x.tag === "NumExp";
-export const isBoolExp = (x: any): x is BoolExp => x.tag === "BoolExp";
-export const isStrExp = (x: any): x is StrExp => x.tag === "StrExp";
-export const isPrimOp = (x: any): x is PrimOp => x.tag === "PrimOp";
-export const isVarRef = (x: any): x is VarRef => x.tag === "VarRef";
-export const isVarDecl = (x: any): x is VarDecl => x.tag === "VarDecl";
-export const isAppExp = (x: any): x is AppExp => x.tag === "AppExp";
-// L2
-export const isIfExp = (x: any): x is IfExp => x.tag === "IfExp";
-export const isProcExp = (x: any): x is ProcExp => x.tag === "ProcExp";
-export const isBinding = (x: any): x is Binding => x.tag === "Binding";
-export const isLetExp = (x: any): x is LetExp => x.tag === "LetExp";
-// L3
-export const isLitExp = (x: any): x is LitExp => x.tag === "LitExp";
-// L4
-export const isLetrecExp = (x: any): x is LetrecExp => x.tag === "LetrecExp";
-export const isSetExp = (x: any): x is SetExp => x.tag === "SetExp";
-
-// Type predicates for type unions
-export const isExp = (x: any): x is Exp => isDefineExp(x) || isCExp(x);
-export const isAtomicExp = (x: any): x is AtomicExp =>
-    isNumExp(x) || isBoolExp(x) || isStrExp(x) ||
-    isPrimOp(x) || isVarRef(x);
-export const isCompoundExp = (x: any): x is CompoundExp =>
-    isAppExp(x) || isIfExp(x) || isProcExp(x) || isLitExp(x) || isLetExp(x) ||
-    isLetrecExp(x) || isSetExp(x);
-export const isCExp = (x: any): x is CExp =>
-    isAtomicExp(x) || isCompoundExp(x);
+// Type predicates for disjoint and union types
+export const isTD = (x: any): x is TD => x.tag === "TD";
+export const isLR = (x: any): x is LR => x.tag === "LR";
+export const isGraph = (x: any): x is Graph => x.tag === "Graph";
+export const isAtomicGraph = (x: any): x is AtomicGraph => x.tag === "AtomicGraph";
+export const isCompoundGraph = (x: any): x is CompoundGraph => x.tag === "CompoundGraph";
+export const isEdge = (x: any): x is Edge => x.tag === "Edge";
+export const isNodeDecl = (x: any): x is NodeDecl =>
+    x.tag === "NodeDecl";
+export const isNodeRef = (x: any): x is NodeRef =>
+    x.tag === "NodeRef";
+export const isEdgeLabel = (x: any): x is EdgeLabel =>
+    x.tag === "EdgeLabel";
+export const isgraphContent = (x: any): x is graphContent =>
+    isAtomicGraph(x) || isCompoundGraph(x);
+export const isNode = (x: any): x is Node =>
+    isNodeDecl(x) || isNodeRef(x);
+export const isDir = (x: any): x is Dir =>
+    isLR(x) || isTD(x);   
 
 
 // ========================================================
 // Parsing
 
+
+/*
 export const parseL4 = (x: string): Result<Program> =>
     bind(p(x), parseL4Program);
 
@@ -175,6 +152,7 @@ export const parseL4CExp = (sexp: Sexp): Result<CExp> =>
     ;;                  | cons | car | cdr | pair? | number? | list
     ;;                  | boolean? | symbol? | string?      ##### L3
 */
+/*
 const isPrimitiveOp = (x: string): boolean =>
     ["+", "-", "*", "/", ">", "<", "=", "not", "and", "or", 
      "eq?", "string=?", "cons", "car", "cdr", "list", "pair?",
@@ -303,3 +281,4 @@ export const unparse = (exp: Parsed): string =>
     isDefineExp(exp) ? `(define ${exp.var.var} ${unparse(exp.val)})` :
     isProgram(exp) ? `(L4 ${unparseLExps(exp.exps)})` :
     "";
+*/
