@@ -71,16 +71,49 @@ export const isNodeRef = (x: any): x is NodeRef =>
     x.tag === "NodeRef";
 export const isEdgeLabel = (x: any): x is EdgeLabel =>
     x.tag === "EdgeLabel";
-export const isgraphContent = (x: any): x is graphContent =>
+export const isGraphContent = (x: any): x is graphContent =>
     isAtomicGraph(x) || isCompoundGraph(x);
 export const isNode = (x: any): x is Node =>
     isNodeDecl(x) || isNodeRef(x);
 export const isDir = (x: any): x is Dir =>
     isLR(x) || isTD(x);   
 
+// ========================================================
+// Unnparsing
+export const unparseMermaid = (exp: Graph): Result<string> => 
+    isGraph(exp) ? makeOk('Graph  ' + dirToString(exp.dir) + GContentToString(exp.graphContent)):
+    makeFailure("Failed to unparse graph\n");
+
+
+
+export const dirToString = (dir: Dir): string =>
+    isTD(dir) ? "TD\n" :
+    isLR(dir) ? "LR\n" :
+    "";
+
+
+export const GContentToString = (exp: graphContent): string =>
+    isAtomicGraph(exp) ? "AtomicGraph_"+exp.node.id+'['+exp.node.label+']': 
+    isCompoundGraph(exp) ? map(edgeToString, exp.edges).join(" ") :
+    ""; 
+
+
+export const edgeToString = (edge:Edge): string =>
+    isEdge(edge) ? "nodeDecl" + "_" + edge.from.id +" --> "+"|"+edge.label+"| "+ nodeToString(edge.to):
+    "";
+
+
+export const nodeToString = (node: Node): string =>
+    isNodeDecl(node) ? "nodeDecl" + "_" + node.id + "[" + node.label + "]\n":
+    isNodeRef(node) ? node.id:
+    "";
+
+export const L4toMermaid = (concrete: string): Result<string> => 
+    makeFailure("--- TODO ---");
+    
 
 // ========================================================
-// Parsing
+// Parsing(from L4)
 
 
 /*
