@@ -9,74 +9,36 @@ import { Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/r
 import { isSymbolSExp, isEmptySExp, isCompoundSExp } from './L4-value';
 import { makeEmptySExp, makeSymbolSExp, SExpValue, makeCompoundSExp, valueToString } from './L4-value'
 
-/*
-;; =============================================================================
-;; Scheme Parser
-;;
-;; L2 extends L1 with support for IfExp and ProcExp
-;; L3 extends L2 with support for:
-;; - Pair and List datatypes
-;; - Compound literal expressions denoted with quote
-;; - Primitives: cons, car, cdr, list?
-;; - The empty-list literal expression
-;; - The Let abbreviation is also supported.
-;; L4 extends L3 with:
-;; - letrec
-;; - set!
-
-;; <program> ::= (L4 <exp>+) // Program(exps:List(exp))
-;; <exp4> ::= <define> | <cexp>               / DefExp | CExp
-;; <define> ::= ( define <var> <cexp> )       / DefExp(var:VarDecl, val:CExp)
-;; <var> ::= <identifier>                     / VarRef(var:string)
-;; <cexp> ::= <number>                        / NumExp(val:number)
-;;         |  <boolean>                       / BoolExp(val:boolean)
-;;         |  <string>                        / StrExp(val:string)
-;;         |  ( lambda ( <var>* ) <cexp>+ )   / ProcExp(params:VarDecl[], body:CExp[]))
-;;         |  ( if <cexp> <cexp> <cexp> )     / IfExp(test: CExp, then: CExp, alt: CExp)
-;;         |  ( let ( <binding>* ) <cexp>+ )  / LetExp(bindings:Binding[], body:CExp[]))
-;;         |  ( quote <sexp> )                / LitExp(val:SExp)
-;;         |  ( <cexp> <cexp>* )              / AppExp(operator:CExp, operands:CExp[]))
-;;         |  ( letrec ( binding*) <cexp>+ )  / LetrecExp(bindings:Bindings[], body: CExp) #### L4
-;;         |  ( set! <var> <cexp>)            / SetExp(var: varRef, val: CExp)             #### L4
-;; <binding>  ::= ( <var> <cexp> )            / Binding(var:VarDecl, val:Cexp)
-;; <prim-op>  ::= + | - | * | / | < | > | = | not |  eq? | string=?
-;;                  | cons | car | cdr | list | pair? | list? | number?
-;;                  | boolean? | symbol? | string?      ##### L3
-;; <num-exp>  ::= a number token
-;; <bool-exp> ::= #t | #f
-;; <str-exp>  ::= "tokens*"
-;; <var-ref>  ::= an identifier token
-;; <var-decl> ::= an identifier token
-;; <sexp>     ::= symbol | number | bool | string | ( <sexp>* )              ##### L3
-*/
+// <graph> ::= <header> <graphContent> // Graph(dir: Dir, content: GraphContent)
+// <header> ::= graph (TD|LR)<newline> // Direction can be TD or LR
+// <graphContent> ::= <atomicGraph> | <compoundGraph>
+// <atomicGraph> ::= <nodeDecl>
+// <compoundGraph> ::= <edge>+
+// <edge> ::= <node> --><edgeLabel>? <node><newline> // <edgeLabel> is optional
+// // Edge(from: Node, to: Node, label?: string)
+// <node> ::= <nodeDecl> | <nodeRef>
+// <nodeDecl> ::= <identifier>["<string>"] // NodeDecl(id: string, label: string)
+// <nodeRef> ::= <identifier> // NodeRef(id: string)
+// <edgeLabel> ::= |<identifier>| // string
 
 // A value returned by parse
-export type Parsed = Exp | Program;
+export type Parsed = Graph;
+export type graphContent = AtomicGraph | CompoundGraph;
+export type Node = NodeDecl | NodeRef;
+export type Dir = TD | LR;
 
-export type Exp = DefineExp | CExp;
-export type AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
-export type CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp | LetrecExp | SetExp;
-export type CExp =  AtomicExp | CompoundExp;
+export interface TD {tag:"TD"};
+export interface LR {tag:"LR"};
+export interface Graph {tag:"Graph"; dir: Dir, graphContent: graphContent}
+//Header needed????
+export interface Header {tag: "Header"; graph: Graph; edges: Edge[]}
+export interface AtomicGraph {tag: "AtomicGraph"; node: NodeDecl; }
+export interface CompoundGraph {tag: "CompoundGraph"; edges: Edge[]}
+export interface Edge {tag: "Edge"; from: Node, to: Node, label?: EdgeLabel}
+export interface NodeDecl {tag:"NodeDecl"; id: string; label: string}
+export interface NodeRef {tag:"NodeRef"; id: string}
+export interface EdgeLabel {tag: "EdgeLabel"; label: string}
 
-export interface Program {tag: "Program"; exps: Exp[]; }
-export interface DefineExp {tag: "DefineExp"; var: VarDecl; val: CExp; }
-export interface NumExp {tag: "NumExp"; val: number; }
-export interface BoolExp {tag: "BoolExp"; val: boolean; }
-export interface StrExp {tag: "StrExp"; val: string; }
-export interface PrimOp {tag: "PrimOp"; op: string; }
-export interface VarRef {tag: "VarRef"; var: string; }
-export interface VarDecl {tag: "VarDecl"; var: string; }
-export interface AppExp {tag: "AppExp"; rator: CExp; rands: CExp[]; }
-// L2
-export interface IfExp {tag: "IfExp"; test: CExp; then: CExp; alt: CExp; }
-export interface ProcExp {tag: "ProcExp"; args: VarDecl[], body: CExp[]; }
-export interface Binding {tag: "Binding"; var: VarDecl; val: CExp; }
-export interface LetExp {tag: "LetExp"; bindings: Binding[]; body: CExp[]; }
-// L3
-export interface LitExp {tag: "LitExp"; val: SExpValue; }
-// L4
-export interface LetrecExp {tag: "LetrecExp"; bindings: Binding[]; body: CExp[]; }
-export interface SetExp {tag: "SetExp", var: VarRef; val: CExp; }
 
 // Type value constructors for disjoint types
 export const makeProgram = (exps: Exp[]): Program => ({tag: "Program", exps: exps});
