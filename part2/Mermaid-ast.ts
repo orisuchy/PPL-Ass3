@@ -109,7 +109,7 @@ export const nodeToString = (node: Node): string =>
     "";
 
 export const L4toMermaid = (concrete: string): Result<string> => 
-    makeFailure("--- TODO ---");
+    unparseMermaid(mapL4ToMermaid(concrete));
     
 
 // ========================================================
