@@ -8,6 +8,7 @@ import { parse as p, isSexpString, isToken } from "../shared/parser";
 import { Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
 import { isSymbolSExp, isEmptySExp, isCompoundSExp } from './L4-value';
 import { makeEmptySExp, makeSymbolSExp, SExpValue, makeCompoundSExp, valueToString } from './L4-value'
+import { mapL4toMermaid} from './Mermaid'
 
 // <graph> ::= <header> <graphContent> // Graph(dir: Dir, content: GraphContent)
 // <header> ::= graph (TD|LR)<newline> // Direction can be TD or LR
@@ -107,9 +108,9 @@ export const nodeToString = (node: Node): string =>
     isNodeDecl(node) ? "nodeDecl" + "_" + node.id + "[" + node.label + "]\n":
     isNodeRef(node) ? node.id:
     "";
-
+//TODO: is parseL4 the right function???
 export const L4toMermaid = (concrete: string): Result<string> => 
-    unparseMermaid(mapL4ToMermaid(concrete));
+    unparseMermaid(mapL4toMermaid(parseL4(concrete)));
     
 
 // ========================================================
