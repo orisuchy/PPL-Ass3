@@ -5,10 +5,11 @@ import { Sexp, Token } from "s-expression";
 import { allT, first, second, rest, isEmpty } from "../shared/list";
 import { isArray, isString, isNumericString, isIdentifier } from "../shared/type-predicates";
 import { parse as p, isSexpString, isToken } from "../shared/parser";
-import { Result, makeOk, makeFailure, bind, mapResult, safe2 } from "../shared/result";
+import { Result, makeOk, makeFailure, bind, mapResult, safe2, isOk, isFailure } from "../shared/result";
 import { isSymbolSExp, isEmptySExp, isCompoundSExp } from './L4-value';
 import { makeEmptySExp, makeSymbolSExp, SExpValue, makeCompoundSExp, valueToString } from './L4-value'
 import { mapL4toMermaid} from './Mermaid'
+import { parseL4, Program } from "./L4-ast";
 
 // <graph> ::= <header> <graphContent> // Graph(dir: Dir, content: GraphContent)
 // <header> ::= graph (TD|LR)<newline> // Direction can be TD or LR
@@ -23,7 +24,7 @@ import { mapL4toMermaid} from './Mermaid'
 // <edgeLabel> ::= |<identifier>| // string
 
 // A value returned by parse
-export type Parsed = Graph;
+//export type Parsed = Graph;
 export type graphContent = AtomicGraph | CompoundGraph;
 export type Node = NodeDecl | NodeRef;
 export type Dir = TD | LR;
@@ -34,11 +35,11 @@ export interface Graph {tag:"Graph"; dir: Dir, graphContent: graphContent}
 //Header needed????
 //export interface Header {tag: "Header"; graph: Graph; edges: Edge[]}
 export interface AtomicGraph {tag: "AtomicGraph"; node: NodeDecl; }
-export interface CompoundGraph {tag: "CompoundGraph"; edges: Edge[]}
-export interface Edge {tag: "Edge"; from: Node, to: Node, label?: EdgeLabel}
-export interface NodeDecl {tag:"NodeDecl"; id: string; label: string}
-export interface NodeRef {tag:"NodeRef"; id: string}
-export interface EdgeLabel {tag: "EdgeLabel"; label: string}
+export interface CompoundGraph {tag: "CompoundGraph"; edges: Edge[];}
+export interface Edge {tag: "Edge"; from: Node, to: Node, label?: EdgeLabel;}
+export interface NodeDecl {tag:"NodeDecl"; id: string; label: string;}
+export interface NodeRef {tag:"NodeRef"; id: string;}
+export interface EdgeLabel {tag: "EdgeLabel"; label: string;}
 
 
 // Type value constructors for disjoint types
@@ -100,19 +101,51 @@ export const GContentToString = (exp: graphContent): string =>
 
 
 export const edgeToString = (edge:Edge): string =>
-    isEdge(edge) ? "nodeDecl" + "_" + edge.from.id +" --> "+"|"+edge.label+"| "+ nodeToString(edge.to):
+    isEdge(edge) ? "nodeDecl" + "_" + edge.from.id +" --> "+"|"+edge.label+"| "+ nodeToString(edge.to)+"\n":
     "";
 
 
 export const nodeToString = (node: Node): string =>
-    isNodeDecl(node) ? "nodeDecl" + "_" + node.id + "[" + node.label + "]\n":
+    isNodeDecl(node) ? "nodeDecl" + "_" + node.id + "[" + node.label + "]":
     isNodeRef(node) ? node.id:
     "";
 //TODO: is parseL4 the right function???
-export const L4toMermaid = (concrete: string): Result<string> => 
-    unparseMermaid(mapL4toMermaid(parseL4(concrete)));
+
+export const L4toMermaid = (concrete: string): Result<string> => {
+    let parsedL4Res :Result<Program> = parseL4(concrete);
     
+    if (isOk(parsedL4Res)){
+        console.log("parsedL4 ok\n")
+        let mermaid : Result <Graph> = mapL4toMermaid(parsedL4Res.value)
+        if(isOk(mermaid)){
+            console.log("mermaid ok\n")
+            return unparseMermaid(mermaid.value)
+        }
+    }
+        return makeFailure("Failed to parse");
+    
+}
 // TODO: Delete no needed imports
+
+const str :string ="(L4 (+ 3 4))"
+//let stinkynode :Node = makeNodeDecl("Id try","Label try")
+//console.log("stinkynode:\n"+stinkynode.id+"\n"+stinkynode.label+"\n"+"tag - "+ stinkynode.tag+"\n")
+console.log(L4toMermaid(str));
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
