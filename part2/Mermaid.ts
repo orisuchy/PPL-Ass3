@@ -1,9 +1,11 @@
 import { Parsed, isExp, isProgram, isDefineExp, Program, Exp, isCExp,isNumExp, isProcExp, isPrimOp,
          isStrExp, isIfExp, isLetExp, isLitExp, isAppExp, isLetrecExp, isSetExp, isBinding, isAtomicExp,
-         isCompoundExp, AtomicExp, CompoundExp, isBoolExp, isVarRef, AppExp, makePrimOp, CExp, IfExp, ProcExp, LetExp, LitExp, LetrecExp, SetExp } from "./L4-ast";
+         isCompoundExp, AtomicExp, CompoundExp, isBoolExp, isVarRef, AppExp, makePrimOp, CExp, IfExp, ProcExp, LetExp, LitExp, LetrecExp, SetExp, Binding } from "./L4-ast";
 import { Result, makeFailure, makeOk, isOk } from "../shared/result";
 import { Graph, makeGraph, makeCompoundGraph, CompoundGraph, makeEdge, makeNodeDecl, Node, makeEdgeLabel, Edge, isNodeDecl, isNode, makeTD, graphContent, AtomicGraph, makeAtomicGraph } from "./Mermaid-ast";
 import { map } from "ramda";
+import { SExpValue, isClosure, isSymbolSExp, isEmptySExp, isCompoundSExp, CompoundSExp } from "./L4-value";
+import { isNumber, isBoolean, isString } from "util";
 
 const nullNode :Node = makeNodeDecl("Null","Null");
 
@@ -22,9 +24,10 @@ export const mapL4ExptoMermaid = (exp: Exp): Result<Graph> =>
         isCompoundExp(exp) ? makeOk(makeGraph(makeTD(),mapCompExp(exp))) : 
         makeFailure("Unrecognized CExp")
     :
-    makeFailure("Unrecognized Exp"); 
+    makeFailure("Unrecognized Exp");
 
-
+export const mapL4ProgramtoMermaid = (exp: Program): Result<Graph> =>
+    
 
 export const mapAtomicExp = (exp: AtomicExp): AtomicGraph =>
 //AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef
@@ -45,6 +48,9 @@ export const mapCompExp = (exp: CompoundExp): CompoundGraph =>
     isLetrecExp(exp)? makeCompoundGraph(mapL4LetrecToMermaid(exp)): 
     isSetExp(exp)?  makeCompoundGraph(mapL4SetToMermaid(exp)) : 
     makeCompoundGraph([makeEdge(nullNode,nullNode)]);
+
+
+    ////////---------------------------------Worrie - All functions from now need to return Edge[]----------------
 
 export const mapL4AppToMermaid = (exp: AppExp): Edge[] =>{
     
@@ -81,21 +87,117 @@ const mapL4IfToMermaid = (exp:IfExp): Edge[] => {
 }
     
 
-const mapL4ProcToMermaid = (exp:ProcExp): Edge[] => 
-    [makeEdge(nullNode, nullNode)]
+const mapL4ProcToMermaid = (exp:ProcExp): Edge[] => {
+    //args: VarDecl[], body: CExp[];
+    const ProcExpNode :Node = makeNodeDecl(makeVarGen()("ProcExp"),"ProcExp")
+    const argsPointerNode = makeNodeDecl(makeVarGen()("Params"),":")
+    const bodyPointerNode = makeNodeDecl(makeVarGen()("Body"),":")
+    const argsPtrEdge :Edge[] = [makeEdge(ProcExpNode, argsPointerNode, makeEdgeLabel("args"))]
+    const bodyPtrEdge :Edge[] = [makeEdge(ProcExpNode, bodyPointerNode, makeEdgeLabel("body"))]
 
-const mapL4LetToMermaid = (exp:LetExp): Edge[] => 
-    [makeEdge(nullNode, nullNode)]
+    const argsNodes: Node[] = exp.args.map(x => makeNodeDecl(makeVarGen()("VarDecl"),"VarDecl"+"("+x.var+")"))
+    const bodyNodes: Node[] = exp.body.map(x => makeCexpNode(x))
+    const argsEdges: Edge[] = map(x => makeEdge(argsPointerNode,x) ,argsNodes)
+    const bodyEdges: Edge[] = map(x => makeEdge(bodyPointerNode,x) ,bodyNodes) 
+ 
+    const edges = argsPtrEdge.concat(bodyPtrEdge,argsEdges,bodyEdges)
+    return edges;
+}
 
-const mapL4LitToMermaid = (exp:LitExp): Edge[] => 
-    [makeEdge(nullNode, nullNode)]
+const mapL4LetToMermaid = (exp:LetExp): Edge[] =>{
+    //bindings: Binding[]; body: CExp[];
+    
+    const LetExpNode :Node = makeNodeDecl(makeVarGen()("LetExp"),"LetExp")
+    const bindingsPointerNode = makeNodeDecl(makeVarGen()("Bindings"),":")
+    const bodyPointerNode = makeNodeDecl(makeVarGen()("Body"),":")
 
-const mapL4LetrecToMermaid = (exp: LetrecExp): Edge[] => 
-    [makeEdge(nullNode, nullNode)]
+    
+    const bindingsPtrEdge :Edge[] = [makeEdge(LetExpNode, bindingsPointerNode, makeEdgeLabel("bindings"))]
+    const bodyPtrEdge :Edge[] = [makeEdge(LetExpNode, bodyPointerNode, makeEdgeLabel("body"))]
+    
+    
+    const bindingsNodes: Node[] = exp.bindings.map(x =>mapBindingToMermaid(x)[0].from)
+    const bodyNodes: Node[] = exp.body.map(x => makeCexpNode(x))
+    const bindingsEdges: Edge[] = map(x => makeEdge(bindingsPointerNode,x) ,bindingsNodes)
+    const bodyEdges: Edge[] = map(x => makeEdge(LetExpNode,x) ,bodyNodes) 
+    
+    const edges = bindingsPtrEdge.concat(bindingsEdges,bodyPtrEdge,bodyEdges)
+    return edges;
+}
+     
+const mapBindingToMermaid = (exp:Binding): Edge[] =>{
+    //Binding: var: VarDecl; val: CExp; 
+    const BindingNode :Node = makeNodeDecl(makeVarGen()("Binding"),"Binding")
+    const VarDeclNode :Node = makeNodeDecl(makeVarGen()("VarDecl"),"VarDecl"+"("+exp.var+")")
+    const ValNode :Node = makeCexpNode(exp.val)
+    const edges :Edge[] = [makeEdge(BindingNode,VarDeclNode),makeEdge(BindingNode,ValNode)]
+    return edges
+}
 
-const mapL4SetToMermaid = (exp: SetExp): Edge[] => 
-    [makeEdge(nullNode, nullNode)];
+const mapL4LitToMermaid = (exp:LitExp): Edge[] =>{
+    //val: SExpValue;
 
+    
+    const LitExpNode :Node = makeNodeDecl(makeVarGen()("LitExp"),"LitExp")
+    const SExpValueNode :Node = mapL4SExpValueMermaid(exp.val)
+    const LitEdge: Edge[] = [makeEdge(LitExpNode, SExpValueNode,makeEdgeLabel("val"))]
+    return LitEdge
+}
+
+const mapL4SExpValueMermaid = (exp:SExpValue): Node =>
+    //SExpValue = number | boolean | string | PrimOp | Closure | SymbolSExp | EmptySExp | CompoundSExp;
+    isNumber(exp)? makeNodeDecl(makeVarGen()("number"),"number"+"("+exp.toString+")"):
+    isBoolean(exp)? makeNodeDecl(makeVarGen()("boolean"),"boolean"+"("+exp.toString+")"):
+    isString(exp)? makeNodeDecl(makeVarGen()("string"),"string"+"("+exp+")"):
+    isPrimOp(exp)? makeNodeDecl(makeVarGen()("PrimOp"),"PrimOp"+"("+exp.toString+")"):
+    isEmptySExp(exp)? makeNodeDecl(makeVarGen()("EmptySExp"),"EmptySExp"):
+    isSymbolSExp(exp)? makeNodeDecl(makeVarGen()("SymbolSExp"),"SymbolSExp") : 
+
+    //isClosure(exp)? : 
+    
+    isCompoundSExp(exp)? mapL4CompoundSExpToMermaid(exp) :
+    nullNode;
+    
+    
+
+
+const mapL4CompoundSExpToMermaid = (exp: CompoundSExp): Node => {
+    //(val1: SExpValue, val2: SExpValue)
+    const CompoundSExpNode :Node = makeNodeDecl(makeVarGen()("CompoundSExp"),"CompoundSExp")
+    const val1node :Node = mapL4SExpValueMermaid(exp.val1);
+    const val2node :Node = mapL4SExpValueMermaid(exp.val2);
+    const edges: Edge[] = [makeEdge(CompoundSExpNode,val1node,makeEdgeLabel("val1")),
+                          makeEdge(CompoundSExpNode,val2node,makeEdgeLabel("val1"))]
+    return edges[0].from;
+}
+    
+const mapL4LetrecToMermaid = (exp: LetrecExp): Edge[] => {
+    //bindings: Binding[]; body: CExp[];
+    const LetRecNode :Node = makeNodeDecl(makeVarGen()("LetRec"),"LetRec")
+    const bindingsPointerNode = makeNodeDecl(makeVarGen()("Bindings"),":")
+    const bodyPointerNode = makeNodeDecl(makeVarGen()("Body"),":")
+
+    
+    const bindingsPtrEdge :Edge[] = [makeEdge(LetRecNode, bindingsPointerNode, makeEdgeLabel("bindings"))]
+    const bodyPtrEdge :Edge[] = [makeEdge(LetRecNode, bodyPointerNode, makeEdgeLabel("body"))]
+    
+    
+    const bindingsNodes: Node[] = exp.bindings.map(x =>mapBindingToMermaid(x)[0].from)
+    const bodyNodes: Node[] = exp.body.map(x => makeCexpNode(x))
+    const bindingsEdges: Edge[] = map(x => makeEdge(bindingsPointerNode,x) ,bindingsNodes)
+    const bodyEdges: Edge[] = map(x => makeEdge(LetRecNode,x) ,bodyNodes) 
+    
+    const edges = bindingsPtrEdge.concat(bindingsEdges,bodyPtrEdge,bodyEdges)
+    return edges;
+}
+const mapL4SetToMermaid = (exp: SetExp): Edge[] =>{
+    //var: VarRef; val: CExp;
+    const SetExpNode :Node = makeNodeDecl(makeVarGen()("SetExp"),"SetExp")
+    const VarDeclNode :Node = makeNodeDecl(makeVarGen()("VarDecl"),"VarDecl"+"("+exp.var+")")
+    const ValNode :Node = makeCexpNode(exp.val)
+    const edges :Edge[] = [makeEdge(SetExpNode,VarDeclNode),makeEdge(SetExpNode,ValNode)]
+    return edges
+}
 export const makeCexpNode = (exp: CExp): Node =>
     /*
     AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
@@ -106,8 +208,6 @@ export const makeCexpNode = (exp: CExp): Node =>
     nullNode;
 
 
-
-export const mapL4ProgramtoMermaid = (exp: Program): Graph =>{}
     
     
 export const makeVarGen = (): (v: string) => string => {
