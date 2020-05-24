@@ -10,6 +10,7 @@ import { isSymbolSExp, isEmptySExp, isCompoundSExp } from './L4-value';
 import { makeEmptySExp, makeSymbolSExp, SExpValue, makeCompoundSExp, valueToString } from './L4-value'
 import { mapL4toMermaid} from './Mermaid'
 import { parseL4, Program } from "./L4-ast";
+import { isUndefined } from "util";
 
 // <graph> ::= <header> <graphContent> // Graph(dir: Dir, content: GraphContent)
 // <header> ::= graph (TD|LR)<newline> // Direction can be TD or LR
@@ -83,32 +84,44 @@ export const isDir = (x: any): x is Dir =>
 // ========================================================
 // Unnparsing
 export const unparseMermaid = (exp: Graph): Result<string> => 
-    isGraph(exp) ? makeOk('Graph  ' + dirToString(exp.dir) + GContentToString(exp.graphContent)):
+    isGraph(exp) ? makeOk('graph ' + dirToString(exp.dir)+'\n ' + GContentToString(exp.graphContent)):
     makeFailure("Failed to unparse graph\n");
 
 
 
 export const dirToString = (dir: Dir): string =>
-    isTD(dir) ? "TD\n" :
-    isLR(dir) ? "LR\n" :
+    isTD(dir) ? "TD" :
+    isLR(dir) ? "LR" :
     "";
 
 
 export const GContentToString = (exp: graphContent): string =>
-    isAtomicGraph(exp) ? "AtomicGraph_"+exp.node.id+'['+exp.node.label+']': 
+    isAtomicGraph(exp) ? exp.node.id+'['+exp.node.label+']': 
     isCompoundGraph(exp) ? map(edgeToString, exp.edges).join(" ") :
     ""; 
 
 
 export const edgeToString = (edge:Edge): string =>
-    isEdge(edge) ? "nodeDecl" + "_" + edge.from.id +" --> "+"|"+edge.label+"| "+ nodeToString(edge.to)+"\n":
+    isEdge(edge) ? edge.from.id +"["+getNodeLabel(edge.from)+"]"+" --> "+getEdgeLabel(edge.label)+ nodeToString(edge.to)+"\n":
     "";
 
 
 export const nodeToString = (node: Node): string =>
-    isNodeDecl(node) ? "nodeDecl" + "_" + node.id + "[" + node.label + "]":
+    isNodeDecl(node) ?
+        node.label===":"? node.id + "[:]":
+        node.id + '["' + node.label + '"]':
     isNodeRef(node) ? node.id:
     "";
+
+export const getEdgeLabel = (label: EdgeLabel|undefined): string =>
+    isUndefined(label)? "":
+    isEdgeLabel(label)? ("|"+label?.label+"| "):
+    "";
+export const getNodeLabel = (node: Node): string =>
+    isNodeDecl(node)? node.label:
+    "";
+         
+       
 //TODO: is parseL4 the right function???
 
 export const L4toMermaid = (concrete: string): Result<string> => {
@@ -126,230 +139,30 @@ export const L4toMermaid = (concrete: string): Result<string> => {
     
 }
 // TODO: Delete no needed imports
-
-const str :string ="(L4 (+ 3 4))"
+console.log("Test 1\n\n")
+const str :string ="(L4 (lambda (x y) ((lambda (x) (+ x y)) (+ x x)) 1))"
 //let stinkynode :Node = makeNodeDecl("Id try","Label try")
 //console.log("stinkynode:\n"+stinkynode.id+"\n"+stinkynode.label+"\n"+"tag - "+ stinkynode.tag+"\n")
-console.log(L4toMermaid(str));
+const mermaidL4 = L4toMermaid(str);
+isOk(mermaidL4)?
+    console.log(mermaidL4.value):
+    console.log(mermaidL4);
 
+console.log("\n\nTest 2\n\n")
+const str2 :string ="(L4 (define my-list '(1 2)))"
+//let stinkynode :Node = makeNodeDecl("Id try","Label try")
+//console.log("stinkynode:\n"+stinkynode.id+"\n"+stinkynode.label+"\n"+"tag - "+ stinkynode.tag+"\n")
+const mermaidL42 = L4toMermaid(str2);
+isOk(mermaidL42)?
+    console.log(mermaidL42.value):
+    console.log(mermaidL42);
 
+console.log("\n\nTest 3\n\n")
+const str3 :string ="(L4 (* (+ 3 4) (+ 2 3)))"
+//let stinkynode :Node = makeNodeDecl("Id try","Label try")
+//console.log("stinkynode:\n"+stinkynode.id+"\n"+stinkynode.label+"\n"+"tag - "+ stinkynode.tag+"\n")
+const mermaidL43 = L4toMermaid(str3);
+isOk(mermaidL43)?
+    console.log(mermaidL43.value):
+    console.log(mermaidL43);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// ========================================================
-// Parsing(from L4)
-
-
-/*
-export const parseL4 = (x: string): Result<Program> =>
-    bind(p(x), parseL4Program);
-
-export const parseL4Program = (sexp: Sexp): Result<Program> =>
-    sexp === "" || isEmpty(sexp) ? makeFailure("Unexpected empty program") :
-    isToken(sexp) ? makeFailure("Program cannot be a single token") :
-    isArray(sexp) ? parseL4GoodProgram(first(sexp), rest(sexp)) :
-    makeFailure("Unexpected type " + sexp);
-
-const parseL4GoodProgram = (keyword: Sexp, body: Sexp[]): Result<Program> =>
-    keyword === "L4" && !isEmpty(body) ? bind(mapResult(parseL4Exp, body),
-                                              (exps: Exp[]) => makeOk(makeProgram(exps))) :
-    makeFailure("Program must be of the form (L4 <exp>+)");
-
-export const parseL4Exp = (sexp: Sexp): Result<Exp> =>
-    isEmpty(sexp) ? makeFailure("Exp cannot be an empty list") :
-    isArray(sexp) ? parseL4CompoundExp(first(sexp), rest(sexp)) :
-    isToken(sexp) ? parseL4Atomic(sexp) :
-    makeFailure("Unexpected type " + sexp);
-
-export const parseL4CompoundExp = (op: Sexp, params: Sexp[]): Result<Exp> => 
-    op === "define" ? parseDefine(params) :
-    parseL4CompoundCExp(op, params);
-
-export const parseL4CompoundCExp = (op: Sexp, params: Sexp[]): Result<CExp> =>
-    isString(op) && isSpecialForm(op) ? parseL4SpecialForm(op, params) :
-    parseAppExp(op, params);
-
-export const parseL4SpecialForm = (op: Sexp, params: Sexp[]): Result<CExp> =>
-    isEmpty(params) ? makeFailure("Empty args for special form") :
-    op === "if" ? parseIfExp(params) :
-    op === "lambda" ? parseProcExp(first(params), rest(params)) :
-    op === "let" ? parseLetExp(first(params), rest(params)) :
-    op === "quote" ? parseLitExp(first(params)) :
-    op === "letrec" ? parseLetrecExp(first(params), rest(params)) :
-    op === "set!" ? parseSetExp(params) :
-    makeFailure("Never");
-
-export const parseDefine = (params: Sexp[]): Result<DefineExp> =>
-    isEmpty(params) ? makeFailure("define missing 2 arguments") :
-    isEmpty(rest(params)) ? makeFailure("define missing 1 arguments") :
-    ! isEmpty(rest(rest(params))) ? makeFailure("define has too many arguments") :
-    parseGoodDefine(first(params), second(params));
-
-const parseGoodDefine = (variable: Sexp, val: Sexp): Result<DefineExp> =>
-    ! isIdentifier(variable) ? makeFailure("First arg of define must be an identifier") :
-    bind(parseL4CExp(val),
-         (value: CExp) => makeOk(makeDefineExp(makeVarDecl(variable), value)));
-
-export const parseL4Atomic = (token: Token): Result<CExp> =>
-    token === "#t" ? makeOk(makeBoolExp(true)) :
-    token === "#f" ? makeOk(makeBoolExp(false)) :
-    isString(token) && isNumericString(token) ? makeOk(makeNumExp(+token)) :
-    isString(token) && isPrimitiveOp(token) ? makeOk(makePrimOp(token)) :
-    isString(token) ? makeOk(makeVarRef(token)) :
-    makeOk(makeStrExp(token.toString()));
-
-export const parseL4CExp = (sexp: Sexp): Result<CExp> =>
-    isEmpty(sexp) ? makeFailure("CExp cannot be an empty list") :
-    isArray(sexp) ? parseL4CompoundCExp(first(sexp), rest(sexp)) :
-    isToken(sexp) ? parseL4Atomic(sexp) :
-    makeFailure("Unexpected type " + sexp);
-
-/*
-    ;; <prim-op>  ::= + | - | * | / | < | > | = | not | and | or | eq? | string=?
-    ;;                  | cons | car | cdr | pair? | number? | list
-    ;;                  | boolean? | symbol? | string?      ##### L3
-*/
-/*
-const isPrimitiveOp = (x: string): boolean =>
-    ["+", "-", "*", "/", ">", "<", "=", "not", "and", "or", 
-     "eq?", "string=?", "cons", "car", "cdr", "list", "pair?",
-     "list?", "number?", "boolean?", "symbol?", "string?"].includes(x);
-
-const isSpecialForm = (x: string): boolean =>
-    ["if", "lambda", "let", "quote", "letrec", "set!"].includes(x);
-
-const parseAppExp = (op: Sexp, params: Sexp[]): Result<AppExp> =>
-    safe2((rator: CExp, rands: CExp[]) => makeOk(makeAppExp(rator, rands)))
-        (parseL4CExp(op), mapResult(parseL4CExp, params));
-
-const parseIfExp = (params: Sexp[]): Result<IfExp> =>
-    params.length !== 3 ? makeFailure("Expression not of the form (if <cexp> <cexp> <cexp>)") :
-    bind(mapResult(parseL4CExp, params),
-         (cexps: CExp[]) => makeOk(makeIfExp(cexps[0], cexps[1], cexps[2])));
-
-const parseProcExp = (vars: Sexp, body: Sexp[]): Result<ProcExp> =>
-    isArray(vars) && allT(isString, vars) ? bind(mapResult(parseL4CExp, body),
-                                                 (cexps: CExp[]) => makeOk(makeProcExp(map(makeVarDecl, vars), cexps))) :
-    makeFailure(`Invalid vars for ProcExp`);
-
-const isGoodBindings = (bindings: Sexp): bindings is [string, Sexp][] =>
-    isArray(bindings) &&
-    allT(isArray, bindings) &&
-    allT(isIdentifier, map(first, bindings));
-
-const parseBindings = (bindings: Sexp): Result<Binding[]> => {
-    if (!isGoodBindings(bindings)) {
-        return makeFailure(`Invalid bindings: ${bindings}`);
-    }
-    const vars = map(b => b[0], bindings);
-    const valsResult = mapResult(binding => parseL4CExp(second(binding)), bindings);
-    return bind(valsResult,
-                (vals: CExp[]) => makeOk(zipWith(makeBinding, vars, vals)));
-}
-
-const parseLetExp = (bindings: Sexp, body: Sexp[]): Result<LetExp> =>
-    safe2((bindings: Binding[], body: CExp[]) => makeOk(makeLetExp(bindings, body)))
-        (parseBindings(bindings), mapResult(parseL4CExp, body));
-
-const parseLetrecExp = (bindings: Sexp, body: Sexp[]): Result<LetrecExp> =>
-    safe2((bindings: Binding[], body: CExp[]) => makeOk(makeLetrecExp(bindings, body)))
-        (parseBindings(bindings), mapResult(parseL4CExp, body));
-
-const parseSetExp = (params: Sexp[]): Result<SetExp> =>
-    isEmpty(params) ? makeFailure("set! missing 2 arguments") :
-    isEmpty(rest(params)) ? makeFailure("set! missing 1 argument") :
-    ! isEmpty(rest(rest(params))) ? makeFailure("set! has too many arguments") :
-    parseGoodSetExp(first(params), second(params));
-
-const parseGoodSetExp = (variable: Sexp, val: Sexp): Result<SetExp> =>
-    ! isIdentifier(variable) ? makeFailure("First arg of set! must be an identifier") :
-    bind(parseL4CExp(val), (val: CExp) => makeOk(makeSetExp(makeVarRef(variable), val)));
-
-// LitExp has the shape (quote <sexp>)
-export const parseLitExp = (param: Sexp): Result<LitExp> =>
-    bind(parseSExp(param), (sexp: SExpValue) => makeOk(makeLitExp(sexp)));
-
-export const isDottedPair = (sexps: Sexp[]): boolean =>
-    sexps.length === 3 && 
-    sexps[1] === "."
-
-export const makeDottedPair = (sexps : Sexp[]): Result<SExpValue> =>
-    safe2((val1: SExpValue, val2: SExpValue) => makeOk(makeCompoundSExp(val1, val2)))
-        (parseSExp(sexps[0]), parseSExp(sexps[2]));
-
-// x is the output of p (sexp parser)
-export const parseSExp = (sexp: Sexp): Result<SExpValue> =>
-    sexp === "#t" ? makeOk(true) :
-    sexp === "#f" ? makeOk(false) :
-    isString(sexp) && isNumericString(sexp) ? makeOk(+sexp) :
-    isSexpString(sexp) ? makeOk(sexp.toString()) :
-    isString(sexp) ? makeOk(makeSymbolSExp(sexp)) :
-    sexp.length === 0 ? makeOk(makeEmptySExp()) :
-    isDottedPair(sexp) ? makeDottedPair(sexp) :
-    isArray(sexp) ? (
-        // fail on (x . y z)
-        sexp[0] === '.' ? makeFailure("Bad dotted sexp: " + sexp) : 
-        safe2((val1: SExpValue, val2: SExpValue) => makeOk(makeCompoundSExp(val1, val2)))
-            (parseSExp(first(sexp)), parseSExp(rest(sexp)))) :
-    makeFailure(`Bad literal expression: ${sexp}`);
-
-
-// ==========================================================================
-// Unparse: Map an AST to a concrete syntax string.
-
-// Add a quote for symbols, empty and compound sexp - strings and numbers are not quoted.
-const unparseLitExp = (le: LitExp): string =>
-    isEmptySExp(le.val) ? `'()` :
-    isSymbolSExp(le.val) ? `'${valueToString(le.val)}` :
-    isCompoundSExp(le.val) ? `'${valueToString(le.val)}` :
-    `${le.val}`;
-
-const unparseLExps = (les: Exp[]): string =>
-    map(unparse, les).join(" ");
-
-const unparseProcExp = (pe: ProcExp): string => 
-    `(lambda (${map((p: VarDecl) => p.var, pe.args).join(" ")}) ${unparseLExps(pe.body)})`
-
-const unparseBindings = (bdgs: Binding[]): string =>
-    map((b: Binding) => `(${b.var.var} ${unparse(b.val)})`, bdgs).join(" ");
-
-const unparseLetExp = (le: LetExp) : string => 
-    `(let (${unparseBindings(le.bindings)}) ${unparseLExps(le.body)})`
-
-const unparseLetrecExp = (le: LetrecExp): string => 
-    `(letrec (${unparseBindings(le.bindings)}) ${unparseLExps(le.body)})`
-
-const unparseSetExp = (se: SetExp): string =>
-    `(set! ${se.var.var} ${unparse(se.val)})`;
-
-export const unparse = (exp: Parsed): string =>
-    isBoolExp(exp) ? valueToString(exp.val) :
-    isNumExp(exp) ? valueToString(exp.val) :
-    isStrExp(exp) ? valueToString(exp.val) :
-    isLitExp(exp) ? unparseLitExp(exp) :
-    isVarRef(exp) ? exp.var :
-    isProcExp(exp) ? unparseProcExp(exp) :
-    isIfExp(exp) ? `(if ${unparse(exp.test)} ${unparse(exp.then)} ${unparse(exp.alt)})` :
-    isAppExp(exp) ? `(${unparse(exp.rator)} ${unparseLExps(exp.rands)})` :
-    isPrimOp(exp) ? exp.op :
-    isLetExp(exp) ? unparseLetExp(exp) :
-    isLetrecExp(exp) ? unparseLetrecExp(exp) :
-    isSetExp(exp) ? unparseSetExp(exp) :
-    isDefineExp(exp) ? `(define ${exp.var.var} ${unparse(exp.val)})` :
-    isProgram(exp) ? `(L4 ${unparseLExps(exp.exps)})` :
-    "";
-*/
