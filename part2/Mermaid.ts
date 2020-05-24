@@ -2,10 +2,10 @@ import { Parsed, isExp, isProgram, isDefineExp, Program, Exp, isCExp,isNumExp, i
          isStrExp, isIfExp, isLetExp, isLitExp, isAppExp, isLetrecExp, isSetExp, isBinding, isAtomicExp,
          isCompoundExp, AtomicExp, CompoundExp, isBoolExp, isVarRef, AppExp, makePrimOp, CExp, IfExp, ProcExp, LetExp, LitExp, LetrecExp, SetExp, Binding } from "./L4-ast";
 import { Result, makeFailure, makeOk, isOk } from "../shared/result";
-import { Graph, makeGraph, makeCompoundGraph, CompoundGraph, makeEdge, makeNodeDecl, Node, makeEdgeLabel, Edge, isNodeDecl, isNode, makeTD, graphContent, AtomicGraph, makeAtomicGraph, isAtomicGraph } from "./Mermaid-ast";
+import { Graph, makeGraph, makeCompoundGraph, CompoundGraph, makeEdge, makeNodeDecl, Node, makeEdgeLabel, Edge, isNodeDecl, isNode, makeTD, graphContent, AtomicGraph, makeAtomicGraph, isAtomicGraph, isCompoundGraph, isEdge } from "./Mermaid-ast";
 import { map, concat } from "ramda";
 import { SExpValue, isClosure, isSymbolSExp, isEmptySExp, isCompoundSExp, CompoundSExp } from "./L4-value";
-import { isNumber, isBoolean, isString } from "util";
+import { isNumber, isBoolean, isString, isUndefined } from "util";
 
 
 export const makeVarGen = (): (v: string) => string => {
@@ -35,23 +35,23 @@ const varGenCompoundSExp = makeVarGen();
 const varGenSetExp = makeVarGen();
 
 export const mapL4toMermaid = (exp: Parsed): Result<Graph> =>
-    isExp(exp)? makeOk(makeGraph(makeTD(),makeCompoundGraph(mapL4ExptoMermaid(exp)))) :
+    isExp(exp)? mapL4ExptoMermaid(exp) :
     isProgram(exp)? mapL4ProgramtoMermaid(exp) : 
     makeFailure("Graph no good\n");
 
     
-export const mapL4ExptoMermaid = (exp: Exp): Edge[] =>{
+export const mapL4ExptoMermaid = (exp: Exp): Result<Graph> =>{
    // isDefineExp(exp) ? mapL4ExptoMermaid(exp.val):
    if(isCExp(exp)){
     if(isAtomicExp(exp)){
-        return [makeEdge(mapAtomicExp(exp).node,mapAtomicExp(exp).node)];
+        return makeOk(makeGraph(makeTD(),makeAtomicGraph(mapAtomicExp(exp).node)));
     }
     if(isCompoundExp(exp))
-        return mapCompExp(exp).edges;
-    return [makeEdge(makeNodeDecl("null","null"),makeNodeDecl("null","null"))]
+        return makeOk(makeGraph(makeTD(),mapCompExp(exp)));
+    return makeFailure("Cexp but not atomic or compound graph\n")
    }
    else
-   return [makeEdge(makeNodeDecl("null","null"),makeNodeDecl("null","null"))]
+   return makeFailure("Not Cexp\n")
 }
 
 // We want the following as an array of the numbers:
@@ -59,8 +59,20 @@ export const mapL4ExptoMermaid = (exp: Exp): Edge[] =>{
 // a.map(x => x.numbers).reduce((acc,curr) => acc.concat(curr), [])
 
 export const mapL4ProgramtoMermaid = (exp: Program): Result<Graph> =>{
-        const doublEedges :Edge[][] =  map(x=>mapL4ExptoMermaid(x),exp.exps);
-        const edges: Edge[] = doublEedges.reduce((acc,curr) => acc.concat(curr), []);
+        const programGraphs :Result<Graph>[] =  map(x=>mapL4ExptoMermaid(x),exp.exps);
+        const programNode : Node = makeNodeDecl("Program","Program")
+        const programDownEdges:Edge[][] = map(x=>
+                                              isOk(x)?
+                                                    isAtomicGraph(x.value.graphContent)?
+                                                        [makeEdge(programNode,x.value.graphContent.node)]:
+                                                    isCompoundGraph(x.value.graphContent)?
+                                                        x.value.graphContent.edges: 
+                                                    [makeEdge(makeNodeDecl("Null","Null"),makeNodeDecl("Null","Null"))] :
+                                              [makeEdge(makeNodeDecl("Null","Null"),makeNodeDecl("Null","Null"))],programGraphs)
+        // isAtomicGraph? => 
+        // isCompoundGraph? => concat(graph.edges)
+        //const programEdges :Edge[] = map(x=>makeEdge(programNode,),programGraphs)
+        const edges: Edge[] = programDownEdges.reduce((acc,curr) => acc.concat(curr), []);
        return makeOk(makeGraph(makeTD(),makeCompoundGraph(edges)))
 }
 
@@ -93,18 +105,18 @@ export const mapL4AppToMermaid = (exp: AppExp): Edge[] =>{
     const appExpNode :Node = makeNodeDecl(varGenRands("AppExp"),"AppExp")
 
     //Rator node handle
-    let ratorStr :string;
-    isPrimOp(exp.rator) ? ratorStr = exp.rator.op : ratorStr = "";
-    const ratorNode :Node = makeNodeDecl(varGenRands("PrimOp"),"PrimOp("+ratorStr+")")
-    const ratorEdge :Edge[] = [makeEdge(appExpNode, ratorNode, makeEdgeLabel("rator"))]
+    const ratorDownEdges :Edge[] = makeCexpEdges(exp.rator,appExpNode,"rator")
+    
+    //const ratorEdge :Edge[] = [makeEdge(appExpNode, ratorDownEdges[0].from, makeEdgeLabel("rator"))]
     //Rand nodes
     const randsPointerNode = makeNodeDecl(varGenRands("Rands"),":")
     const randsPtrEdge :Edge[] = [makeEdge(appExpNode, randsPointerNode, makeEdgeLabel("rands"))]
-
-    const randsNodes: Node[] = exp.rands.map(x => makeCexpNode(x))
-    const randsEdges: Edge[] = map(x => makeEdge(randsPointerNode,x) ,randsNodes) 
-
-    const edges = ratorEdge.concat(randsPtrEdge, randsEdges)
+    const recursiveEdges :Edge[][] = exp.rands.map(x=>makeCexpEdges(x,randsPointerNode))
+    //const randsNodes : Node[] = recursiveEdges.map(x=>x[0].from)
+    //const randsNodes: Node[] = exp.rands.map(x => makeCexpNode(x)[0].from)
+    //const randsEdges: Edge[] = map(x => makeEdge(randsPointerNode,x) ,randsNodes) 
+    const downEdges: Edge[] = recursiveEdges.reduce((acc,curr) => acc.concat(curr), []);       //edges from the recursion
+    const edges = randsPtrEdge.concat(ratorDownEdges, downEdges)
     return edges;
 }
 
@@ -112,12 +124,11 @@ const mapL4IfToMermaid = (exp:IfExp): Edge[] => {
         //test: CExp; then: CExp; alt: CExp;
 
         const ifExpNode :Node = makeNodeDecl(varGenIf("IfExp"),"IfExp")
-        const testNode :Node = makeCexpNode(exp.test)
-        const thenNode :Node = makeCexpNode(exp.then)
-        const altNode :Node = makeCexpNode(exp.alt)
-        const edges = [makeEdge(ifExpNode,testNode,makeEdgeLabel("test")),
-                       makeEdge(ifExpNode,thenNode,makeEdgeLabel("then")),
-                       makeEdge(ifExpNode,altNode, makeEdgeLabel("alt"))];
+        
+        const testEdges :Edge[] = makeCexpEdges(exp.test,ifExpNode,"test")
+        const thenEdges :Edge[] = makeCexpEdges(exp.then,ifExpNode,"then")
+        const altEdges :Edge[] = makeCexpEdges(exp.alt,ifExpNode,"alt")
+        const edges = testEdges.concat(thenEdges,altEdges);
         return edges;
 }
     
@@ -131,11 +142,14 @@ const mapL4ProcToMermaid = (exp:ProcExp): Edge[] => {
     const bodyPtrEdge :Edge[] = [makeEdge(ProcExpNode, bodyPointerNode, makeEdgeLabel("body"))]
 
     const argsNodes: Node[] = exp.args.map(x => makeNodeDecl(varGenVardecl("VarDecl"),"VarDecl"+"("+x.var+")"))
-    const bodyNodes: Node[] = exp.body.map(x => makeCexpNode(x))
+
+    const recBodyEdges: Edge[][] = exp.body.map(x => makeCexpEdges(x,bodyPointerNode))
+    //const bodyNodes: Node[] = recBodyEdges.map(x=>x[0].from)
     const argsEdges: Edge[] = map(x => makeEdge(argsPointerNode,x) ,argsNodes)
-    const bodyEdges: Edge[] = map(x => makeEdge(bodyPointerNode,x) ,bodyNodes) 
- 
-    const edges = argsPtrEdge.concat(bodyPtrEdge,argsEdges,bodyEdges)
+    //const bodyEdges: Edge[] = map(x => makeEdge(bodyPointerNode,x) ,bodyNodes) 
+    const downEdges: Edge[] = recBodyEdges.reduce((acc,curr) => acc.concat(curr), []);
+    
+    const edges = argsPtrEdge.concat(bodyPtrEdge,argsEdges,downEdges)
     return edges;
 }
 
@@ -149,14 +163,22 @@ const mapL4LetToMermaid = (exp:LetExp): Edge[] =>{
     
     const bindingsPtrEdge :Edge[] = [makeEdge(LetExpNode, bindingsPointerNode, makeEdgeLabel("bindings"))]
     const bodyPtrEdge :Edge[] = [makeEdge(LetExpNode, bodyPointerNode, makeEdgeLabel("body"))]
+    /*
+    const recursiveEdges :Edge[][] = exp.rands.map(x=>makeCexpEdges(x))
+    const randsNodes : Node[] = recursiveEdges.map(x=>x[0].from)
+    */
     
-    
-    const bindingsNodes: Node[] = exp.bindings.map(x =>mapBindingToMermaid(x)[0].from)
-    const bodyNodes: Node[] = exp.body.map(x => makeCexpNode(x))
+    const recBindingsEdges: Edge[][] = exp.bindings.map(x =>mapBindingToMermaid(x))
+    const bindingsNodes : Node[] = recBindingsEdges.map(x=>x[0].from)
+
+    const recBodyEdges: Edge[][] = exp.body.map(x => makeCexpEdges(x,LetExpNode))
+    //const bodyNodes : Node[] = recBodyEdges.map(x=>x[0].from)
+
     const bindingsEdges: Edge[] = map(x => makeEdge(bindingsPointerNode,x) ,bindingsNodes)
-    const bodyEdges: Edge[] = map(x => makeEdge(LetExpNode,x) ,bodyNodes) 
-    
-    const edges = bindingsPtrEdge.concat(bindingsEdges,bodyPtrEdge,bodyEdges)
+    //const bodyEdges: Edge[] = map(x => makeEdge(LetExpNode,x) ,bodyNodes) 
+    const downBindingsEdges: Edge[] = recBindingsEdges.reduce((acc,curr) => acc.concat(curr), []);
+    const downBodyEdges: Edge[] = recBodyEdges.reduce((acc,curr) => acc.concat(curr), []);
+    const edges = bindingsPtrEdge.concat(bindingsEdges,bodyPtrEdge,downBindingsEdges,downBodyEdges)
     return edges;
 }
      
@@ -164,15 +186,15 @@ const mapBindingToMermaid = (exp:Binding): Edge[] =>{
     //Binding: var: VarDecl; val: CExp; 
     const BindingNode :Node = makeNodeDecl(varGenBindings("Binding"),"Binding")
     const VarDeclNode :Node = makeNodeDecl(varGenVardecl("VarDecl"),"VarDecl"+"("+exp.var+")")
-    const ValNode :Node = makeCexpNode(exp.val)
-    const edges :Edge[] = [makeEdge(BindingNode,VarDeclNode),makeEdge(BindingNode,ValNode)]
+    
+    const ValEdges :Edge[] = makeCexpEdges(exp.val,BindingNode)
+    const edges :Edge[] = [makeEdge(BindingNode,VarDeclNode)].concat(ValEdges)
     return edges
 }
 
 const mapL4LitToMermaid = (exp:LitExp): Edge[] =>{
     //val: SExpValue;
-
-    
+       
     const LitExpNode :Node = makeNodeDecl(varGenLit("LitExp"),"LitExp")
     const SExpValueNode :Node = mapL4SExpValueMermaid(exp.val)
     const LitEdge: Edge[] = [makeEdge(LitExpNode, SExpValueNode,makeEdgeLabel("val"))]
@@ -187,23 +209,23 @@ const mapL4SExpValueMermaid = (exp:SExpValue): Node =>
     isPrimOp(exp)? makeNodeDecl(varGenPrimOp("PrimOp"),"PrimOp"+"("+exp.toString+")"):
     isEmptySExp(exp)? makeNodeDecl(varGenEmpySExp("EmptySExp"),"EmptySExp"):
     isSymbolSExp(exp)? makeNodeDecl(varGenSymbolSExp("SymbolSExp"),"SymbolSExp") : 
-
-    //isClosure(exp)? : 
+    //isClosure(exp)? :
     
-    isCompoundSExp(exp)? mapL4CompoundSExpToMermaid(exp) :
+    ////////////////////////////////////TODO/////////////////////////////////////////// 
+    isCompoundSExp(exp)? mapL4CompoundSExpToMermaid(exp)[0].from :
     makeNodeDecl("null","null");
     
     
 
 
-const mapL4CompoundSExpToMermaid = (exp: CompoundSExp): Node => {
+const mapL4CompoundSExpToMermaid = (exp: CompoundSExp): Edge[] => {
     //(val1: SExpValue, val2: SExpValue)
     const CompoundSExpNode :Node = makeNodeDecl(varGenCompoundSExp("CompoundSExp"),"CompoundSExp")
     const val1node :Node = mapL4SExpValueMermaid(exp.val1);
     const val2node :Node = mapL4SExpValueMermaid(exp.val2);
     const edges: Edge[] = [makeEdge(CompoundSExpNode,val1node,makeEdgeLabel("val1")),
                           makeEdge(CompoundSExpNode,val2node,makeEdgeLabel("val1"))]
-    return edges[0].from;
+    return edges;
 }
     
 const mapL4LetrecToMermaid = (exp: LetrecExp): Edge[] => {
@@ -211,40 +233,53 @@ const mapL4LetrecToMermaid = (exp: LetrecExp): Edge[] => {
     const LetRecNode :Node = makeNodeDecl(varGenLetrec("LetRec"),"LetRec")
     const bindingsPointerNode = makeNodeDecl(varGenBindings("Bindings"),":")
     const bodyPointerNode = makeNodeDecl(varGenBody("Body"),":")
-
-    
     const bindingsPtrEdge :Edge[] = [makeEdge(LetRecNode, bindingsPointerNode, makeEdgeLabel("bindings"))]
     const bodyPtrEdge :Edge[] = [makeEdge(LetRecNode, bodyPointerNode, makeEdgeLabel("body"))]
+
     
+    const recBindingsEdges: Edge[][] = exp.bindings.map(x =>mapBindingToMermaid(x))
+    const bindingsNodes : Node[] = recBindingsEdges.map(x=>x[0].from)
+
+   // const valContinue :Node|Edge[] = makeCexpEdges(exp.val)
+    //const ValEdges :Edge[] = isNode(valContinue)? [makeEdge(SetExpNode,valContinue)]: valContinue;
     
-    const bindingsNodes: Node[] = exp.bindings.map(x =>mapBindingToMermaid(x)[0].from)
-    const bodyNodes: Node[] = exp.body.map(x => makeCexpNode(x))
+    const recBodyEdges: Edge[][] = exp.body.map(x => makeCexpEdges(x,LetRecNode))
+    //const bodyNodes : Node[] = recBodyEdges.map(x=>x[0].from)
+
+
     const bindingsEdges: Edge[] = map(x => makeEdge(bindingsPointerNode,x) ,bindingsNodes)
-    const bodyEdges: Edge[] = map(x => makeEdge(LetRecNode,x) ,bodyNodes) 
-    
-    const edges = bindingsPtrEdge.concat(bindingsEdges,bodyPtrEdge,bodyEdges)
+    //const bodyEdges: Edge[] = map(x => makeEdge(LetRecNode,x) ,bodyNodes) 
+    const downBindingsEdges: Edge[] = recBindingsEdges.reduce((acc,curr) => acc.concat(curr), []);
+    const downBodyEdges: Edge[] = recBodyEdges.reduce((acc,curr) => acc.concat(curr), []);
+    const edges = bindingsPtrEdge.concat(bindingsEdges,bodyPtrEdge,downBindingsEdges,downBodyEdges)
     return edges;
 }
 const mapL4SetToMermaid = (exp: SetExp): Edge[] =>{
     //var: VarRef; val: CExp;
     const SetExpNode :Node = makeNodeDecl(varGenSetExp("SetExp"),"SetExp")
     const VarDeclNode :Node = makeNodeDecl(varGenVardecl("VarDecl"),"VarDecl"+"("+exp.var+")")
-    const ValNode :Node = makeCexpNode(exp.val)
-    const edges :Edge[] = [makeEdge(SetExpNode,VarDeclNode),makeEdge(SetExpNode,ValNode)]
+    const ValEdges :Edge[] = makeCexpEdges(exp.val,SetExpNode)
+    const edges :Edge[] = [makeEdge(SetExpNode,VarDeclNode)].concat(ValEdges)
     return edges
     
 }
+export const makeCexpEdges = (exp: CExp, prevNode: Node, label?:string): Edge[] => 
+    isAtomicExp(exp)? [makeEdge(prevNode, mapAtomicExp(exp).node,makeEdgeLabel(isUndefined(label)?"":label))]:
+    isCompoundExp(exp)? [makeEdge(prevNode,mapCompExp(exp).edges[0].from,makeEdgeLabel(isUndefined(label)?"":label))].concat(mapCompExp(exp).edges):
+    [makeEdge(makeNodeDecl("Null","Null"),makeNodeDecl("Null","Null"))];
+
+
+/*
+// the original plan was to return a node, but something isnt working so lets try edge[]
 export const makeCexpNode = (exp: CExp): Node =>
-    /*
+    
     AtomicExp = NumExp | BoolExp | StrExp | PrimOp | VarRef;
     CompoundExp = AppExp | IfExp | ProcExp | LetExp | LitExp | LetrecExp | SetExp;
-    */
+    
     isAtomicExp(exp)? mapAtomicExp(exp).node :
     isCompoundExp(exp)? mapCompExp(exp).edges[0].from:
     makeNodeDecl("null","null");
-
-
-    
+    */
     
 
         /*

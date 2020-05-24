@@ -102,7 +102,7 @@ export const GContentToString = (exp: graphContent): string =>
 
 
 export const edgeToString = (edge:Edge): string =>
-    isEdge(edge) ? edge.from.id +"["+getNodeLabel(edge.from)+"]"+" --> "+getEdgeLabel(edge.label)+ nodeToString(edge.to)+"\n":
+    isEdge(edge) ? edge.from.id +'["'+getNodeLabel(edge.from)+'"]'+" --> "+getEdgeLabel(edge.label)+ nodeToString(edge.to)+"\n":
     "";
 
 
@@ -115,7 +115,7 @@ export const nodeToString = (node: Node): string =>
 
 export const getEdgeLabel = (label: EdgeLabel|undefined): string =>
     isUndefined(label)? "":
-    isEdgeLabel(label)? ("|"+label?.label+"| "):
+    isEdgeLabel(label)? label.label===""? "": ("|"+label?.label+"| "):
     "";
 export const getNodeLabel = (node: Node): string =>
     isNodeDecl(node)? node.label:
@@ -140,9 +140,8 @@ export const L4toMermaid = (concrete: string): Result<string> => {
 }
 // TODO: Delete no needed imports
 console.log("Test 1\n\n")
-const str :string ="(L4 (lambda (x y) ((lambda (x) (+ x y)) (+ x x)) 1))"
-//let stinkynode :Node = makeNodeDecl("Id try","Label try")
-//console.log("stinkynode:\n"+stinkynode.id+"\n"+stinkynode.label+"\n"+"tag - "+ stinkynode.tag+"\n")
+const str :string ="(L4 (lambda (x y)((lambda (x) (+ x y))(+ x x))1)) "
+
 const mermaidL4 = L4toMermaid(str);
 isOk(mermaidL4)?
     console.log(mermaidL4.value):
@@ -150,8 +149,7 @@ isOk(mermaidL4)?
 
 console.log("\n\nTest 2\n\n")
 const str2 :string ="(L4 (define my-list '(1 2)))"
-//let stinkynode :Node = makeNodeDecl("Id try","Label try")
-//console.log("stinkynode:\n"+stinkynode.id+"\n"+stinkynode.label+"\n"+"tag - "+ stinkynode.tag+"\n")
+
 const mermaidL42 = L4toMermaid(str2);
 isOk(mermaidL42)?
     console.log(mermaidL42.value):
@@ -159,10 +157,15 @@ isOk(mermaidL42)?
 
 console.log("\n\nTest 3\n\n")
 const str3 :string ="(L4 (* (+ 3 4) (+ 2 3)))"
-//let stinkynode :Node = makeNodeDecl("Id try","Label try")
-//console.log("stinkynode:\n"+stinkynode.id+"\n"+stinkynode.label+"\n"+"tag - "+ stinkynode.tag+"\n")
 const mermaidL43 = L4toMermaid(str3);
 isOk(mermaidL43)?
     console.log(mermaidL43.value):
     console.log(mermaidL43);
+
+console.log("\n\nTest 4\n\n")
+const str4 :string ="(L4 (+ 3 4))"
+const mermaidL44 = L4toMermaid(str4);
+isOk(mermaidL44)?
+    console.log(mermaidL44.value):
+    console.log(mermaidL44);
 
