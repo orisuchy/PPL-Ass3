@@ -31,7 +31,7 @@ export const L3normalEval = (exp: CExp, env: Env): Result<Value> =>
     // This is the difference between applicative-eval and normal-eval
     // Substitute the arguments into the body without evaluating them first.
     isAppExp(exp) ? bind(L3normalEval(exp.rator, env), proc => L3normalApplyProc(proc, exp.rands, env)) :
-    makeFailure(`Bad ast: ${exp}`);
+    makeFailure(`Bad AST: ${exp}`);
 
 const evalIf = (exp: IfExp, env: Env): Result<Value> =>
     bind(L3normalEval(exp.test, env),

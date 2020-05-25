@@ -9,9 +9,11 @@ const e2 = evalNormalParse("(-)");
 const p1 = bind(parseL3(`(L3 (define x (+)) x)`), evalNormalProgram);
 const p2 = bind(parseL3(`(L3 (define x (-)) x)`), evalNormalProgram);
 const p3 = bind(parseL3(`(L3 (define x (-)) 1)`), evalNormalProgram);
+const p4 = bind(parseL3(`(L3 (define x (- 4 3)) 1)`), evalNormalProgram);
 
 pretty(e1);
 pretty(p1);
 pretty(e2);
 pretty(p2);
 pretty(p3);
+pretty(p4);
