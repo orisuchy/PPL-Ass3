@@ -15,7 +15,7 @@ import { allT, first, rest, isEmpty } from "../shared/list";
 import { Result, makeOk, makeFailure, bind, safe2, mapResult } from "../shared/result";
 import { parse as p } from "../shared/parser";
 
-// ========================================================
+// ======k==================================================
 // Eval functions
 
 const applicativeEval = (exp: CExp, env: Env): Result<Value> =>

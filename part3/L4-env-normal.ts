@@ -54,8 +54,9 @@ export const applyEnv = (env: Env, v: string): Result<CExp> =>
     isExtEnv(env) ? applyExtEnv(env, v) :
     //applyRecEnv(env, v);
     makeFailure(`var not found11 ${v}`)
-
+// according to adler - we return the actual value with eval here
 const applyExtEnv = (env: ExtEnv, v: string): Result<CExp> =>
+//env.vars.includes(v) ?  makeOk(eval(env.vals[env.vars.indexOf(v)]))
     env.vars.includes(v) ? makeOk(env.vals[env.vars.indexOf(v)]) :
     applyEnv(env.nextEnv, v);
 
