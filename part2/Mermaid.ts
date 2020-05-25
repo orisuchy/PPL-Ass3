@@ -1,6 +1,6 @@
 import { Parsed, isExp, isProgram, isDefineExp, Program, Exp, isCExp,isNumExp, isProcExp, isPrimOp,
          isStrExp, isIfExp, isLetExp, isLitExp, isAppExp, isLetrecExp, isSetExp, isBinding, isAtomicExp,
-         isCompoundExp, AtomicExp, CompoundExp, isBoolExp, isVarRef, AppExp, makePrimOp, CExp, IfExp, ProcExp, LetExp, LitExp, LetrecExp, SetExp, Binding } from "./L4-ast";
+         isCompoundExp, AtomicExp, CompoundExp, isBoolExp, isVarRef, AppExp, makePrimOp, CExp, IfExp, ProcExp, LetExp, LitExp, LetrecExp, SetExp, Binding, DefineExp } from "./L4-ast";
 import { Result, makeFailure, makeOk, isOk } from "../shared/result";
 import { Graph, makeGraph, makeCompoundGraph, CompoundGraph, makeEdge, makeNodeDecl, Node, makeEdgeLabel, Edge, isNodeDecl, isNode, makeTD, graphContent, AtomicGraph, makeAtomicGraph, isAtomicGraph, isCompoundGraph, isEdge, NodeRef } from "./Mermaid-ast";
 import { map, concat } from "ramda";
@@ -34,6 +34,7 @@ const varGenSymbolSExp = makeVarGen();
 const varGenCompoundSExp = makeVarGen();
 const varGenSetExp = makeVarGen();
 const varGenProgram = makeVarGen();
+const varGenDefine = makeVarGen();
 
 export const mapL4toMermaid = (exp: Parsed): Result<Graph> =>
     isExp(exp)? mapL4ExptoMermaid(exp) :
@@ -42,8 +43,9 @@ export const mapL4toMermaid = (exp: Parsed): Result<Graph> =>
 
     
 export const mapL4ExptoMermaid = (exp: Exp): Result<Graph> =>{
-   // isDefineExp(exp) ? mapL4ExptoMermaid(exp.val)://///////////////////////////////////////////////////////////test2
-   if(isCExp(exp)){
+   if(isDefineExp(exp))
+        return mapL4DefExptoMermaid(exp)
+   else if(isCExp(exp)){
     if(isAtomicExp(exp)){
         return makeOk(makeGraph(makeTD(),makeAtomicGraph(mapAtomicExp(exp).node)));
     }
@@ -53,6 +55,16 @@ export const mapL4ExptoMermaid = (exp: Exp): Result<Graph> =>{
    }
    else
    return makeFailure("Not Cexp\n")
+}
+export const mapL4DefExptoMermaid = (exp: DefineExp): Result<Graph> =>{
+    //var: VarDecl; val: CExp;
+    const defineNode:Node = makeNodeDecl(varGenDefine("DefineExp"),"DefineExp")
+    const varNode:Node = makeNodeDecl(varGenVardecl("VarDecl"),"VarDecl("+exp.var.var+")")
+    const varEdge:Edge[] = [makeEdge(defineNode,varNode,makeEdgeLabel("var"))]
+
+    const recValEdges:Edge[] = makeCexpEdges(exp.val,defineNode,"val")
+    const edges = varEdge.concat(recValEdges)
+    return makeOk(makeGraph(makeTD(),makeCompoundGraph(edges)))
 }
 
 // We want the following as an array of the numbers:
@@ -199,35 +211,34 @@ const mapL4LitToMermaid = (exp:LitExp): Edge[] =>{
     //val: SExpValue;
        
     const LitExpNode :Node = makeNodeDecl(varGenLit("LitExp"),"LitExp")
-    const SExpValueNode :Node = mapL4SExpValueMermaid(exp.val)
-    const LitEdge: Edge[] = [makeEdge(LitExpNode, SExpValueNode,makeEdgeLabel("val"))]
-    return LitEdge
+    const SExpValueEdges :Edge[] = mapL4SExpValueMermaid(exp.val,LitExpNode,"val")
+    return SExpValueEdges
 }
 
-const mapL4SExpValueMermaid = (exp:SExpValue): Node =>
+const mapL4SExpValueMermaid = (exp:SExpValue, prevNode :Node, label:string): Edge[] =>{
     //SExpValue = number | boolean | string | PrimOp | Closure | SymbolSExp | EmptySExp | CompoundSExp;
-    isNumber(exp)? makeNodeDecl(varGenNum("number"),"number"+"("+exp.toString+")"):
-    isBoolean(exp)? makeNodeDecl(varGenBool("boolean"),"boolean"+"("+exp.toString+")"):
-    isString(exp)? makeNodeDecl(varGenStr("string"),"string"+"("+exp+")"):
-    isPrimOp(exp)? makeNodeDecl(varGenPrimOp("PrimOp"),"PrimOp"+"("+exp.toString+")"):
-    isEmptySExp(exp)? makeNodeDecl(varGenEmpySExp("EmptySExp"),"EmptySExp"):
-    isSymbolSExp(exp)? makeNodeDecl(varGenSymbolSExp("SymbolSExp"),"SymbolSExp") : 
+    if(isNumber(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenNum("number"),"number"+"("+exp+")"),makeEdgeLabel(label))]
+    if(isBoolean(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenBool("boolean"),"boolean"+"("+exp+")"),makeEdgeLabel(label))]
+    if(isString(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenStr("string"),"string"+"("+exp+")"),makeEdgeLabel(label))]
+    if(isPrimOp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenPrimOp("PrimOp"),"PrimOp"+"("+exp+")"),makeEdgeLabel(label))]
+    if(isEmptySExp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenEmpySExp("EmptySExp"),"EmptySExp"),makeEdgeLabel(label))]
+    if(isSymbolSExp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenSymbolSExp("SymbolSExp"),"SymbolSExp"),makeEdgeLabel(label))]  
     //isClosure(exp)? :
+    if(isCompoundSExp(exp)){ 
+    const compGraph = mapL4CompoundSExpToMermaid(exp)
+    return [makeEdge(prevNode,compGraph[0].from,makeEdgeLabel(label))].concat(compGraph)}
+    else
+    return [makeEdge(makeNodeDecl("null","null"),makeNodeDecl("null","null"))];
     
-    ////////////////////////////////////TODO/////////////////////////////////////////// 
-    isCompoundSExp(exp)? mapL4CompoundSExpToMermaid(exp)[0].from :
-    makeNodeDecl("null","null");
-    
-    
+}
 
 
 const mapL4CompoundSExpToMermaid = (exp: CompoundSExp): Edge[] => {
     //(val1: SExpValue, val2: SExpValue)
     const CompoundSExpNode :Node = makeNodeDecl(varGenCompoundSExp("CompoundSExp"),"CompoundSExp")
-    const val1node :Node = mapL4SExpValueMermaid(exp.val1);
-    const val2node :Node = mapL4SExpValueMermaid(exp.val2);
-    const edges: Edge[] = [makeEdge(CompoundSExpNode,val1node,makeEdgeLabel("val1")),
-                          makeEdge(CompoundSExpNode,val2node,makeEdgeLabel("val1"))]
+    const val1Edges :Edge[] = mapL4SExpValueMermaid(exp.val1,CompoundSExpNode,"val1");
+    const val2Edges :Edge[] = mapL4SExpValueMermaid(exp.val2,CompoundSExpNode,"val2");
+    const edges: Edge[] = val1Edges.concat(val2Edges)
     return edges;
 }
     
