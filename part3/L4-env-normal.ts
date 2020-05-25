@@ -25,7 +25,7 @@ export interface EmptyEnv {tag: "EmptyEnv" }
 export interface ExtEnv {
     tag: "ExtEnv";
     vars: string[];
-    vals: Value[];
+    vals: CExp[];
     nextEnv: Env;
 }
 export interface RecEnv {
@@ -37,7 +37,7 @@ export interface RecEnv {
 }
 
 export const makeEmptyEnv = (): EmptyEnv => ({tag: "EmptyEnv"});
-export const makeExtEnv = (vs: string[], vals: Value[], env: Env): ExtEnv =>
+export const makeExtEnv = (vs: string[], vals: CExp[], env: Env): ExtEnv =>
     ({tag: "ExtEnv", vars: vs, vals: vals, nextEnv: env});
 export const makeRecEnv = (vs: string[], paramss: VarDecl[][], bodiess: CExp[][], env: Env): RecEnv =>
     ({tag: "RecEnv", vars: vs, paramss: paramss, bodiess: bodiess, nextEnv: env});
@@ -49,17 +49,18 @@ const isRecEnv = (x: any): x is RecEnv => x.tag === "RecEnv";
 export const isEnv = (x: any): x is Env => isEmptyEnv(x) || isExtEnv(x) || isRecEnv(x);
 
 // Apply-env
-export const applyEnv = (env: Env, v: string): Result<Value> =>
+export const applyEnv = (env: Env, v: string): Result<CExp> =>
     isEmptyEnv(env) ? makeFailure(`var not found ${v}`) :
     isExtEnv(env) ? applyExtEnv(env, v) :
-    applyRecEnv(env, v);
+    //applyRecEnv(env, v);
+    makeFailure(`var not found11 ${v}`)
 
-const applyExtEnv = (env: ExtEnv, v: string): Result<Value> =>
+const applyExtEnv = (env: ExtEnv, v: string): Result<CExp> =>
     env.vars.includes(v) ? makeOk(env.vals[env.vars.indexOf(v)]) :
     applyEnv(env.nextEnv, v);
 
-const applyRecEnv = (env: RecEnv, v: string): Result<Value> =>
-    env.vars.includes(v) ? makeOk(makeClosure(env.paramss[env.vars.indexOf(v)],
-                                              env.bodiess[env.vars.indexOf(v)],
-                                              env)) :
-    applyEnv(env.nextEnv, v);
+// const applyRecEnv = (env: RecEnv, v: string): Result<CExp> =>
+//     env.vars.includes(v) ? makeOk(makeClosure(env.paramss[env.vars.indexOf(v)],
+//                                               env.bodiess[env.vars.indexOf(v)],
+//                                               env)) :
+//     applyEnv(env.nextEnv, v);
