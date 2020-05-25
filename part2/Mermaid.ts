@@ -222,7 +222,7 @@ const mapL4SExpValueMermaid = (exp:SExpValue, prevNode :Node, label:string): Edg
     if(isString(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenStr("string"),"string"+"("+exp+")"),makeEdgeLabel(label))]
     if(isPrimOp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenPrimOp("PrimOp"),"PrimOp"+"("+exp+")"),makeEdgeLabel(label))]
     if(isEmptySExp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenEmpySExp("EmptySExp"),"EmptySExp"),makeEdgeLabel(label))]
-    if(isSymbolSExp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenSymbolSExp("SymbolSExp"),"SymbolSExp"),makeEdgeLabel(label))]  
+    if(isSymbolSExp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenSymbolSExp("SymbolSExp"),"SymbolSExp"+"("+exp.val+")"),makeEdgeLabel(label))]  
     //isClosure(exp)? :
     if(isCompoundSExp(exp)){ 
     const compGraph = mapL4CompoundSExpToMermaid(exp)

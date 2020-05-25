@@ -138,6 +138,7 @@ export const L4toMermaid = (concrete: string): Result<string> => {
         return makeFailure("Failed to parse");
     
 }
+/////////////////////////////////////////////////Tests - Delete /////////////////////////////////////////////////
 // TODO: Delete no needed imports
 console.log("Test 1\n\n")
 const str :string ="(L4 (lambda (x y)((lambda (x) (+ x y))(+ x x))1)) "
@@ -168,4 +169,19 @@ const mermaidL44 = L4toMermaid(str4);
 isOk(mermaidL44)?
     console.log(mermaidL44.value):
     console.log(mermaidL44);
+
+console.log("\n\nTest 5 - if\n\n")
+const str5 :string ="(L4 (if #t 3 4))"
+const mermaidL45 = L4toMermaid(str5);
+isOk(mermaidL45)?
+    console.log(mermaidL45.value):
+    console.log(mermaidL45);
+
+console.log("\n\nTest 6\n\n")
+const str6 :string ="(L4 (define f(lambda (x y)(+ x y)))(define my-list '(1 f 2)))"
+
+const mermaidL46 = L4toMermaid(str6);
+isOk(mermaidL46)?
+    console.log(mermaidL46.value):
+    console.log(mermaidL46);
 
