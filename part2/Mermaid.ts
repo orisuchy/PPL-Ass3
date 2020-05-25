@@ -2,7 +2,7 @@ import { Parsed, isExp, isProgram, isDefineExp, Program, Exp, isCExp,isNumExp, i
          isStrExp, isIfExp, isLetExp, isLitExp, isAppExp, isLetrecExp, isSetExp, isBinding, isAtomicExp,
          isCompoundExp, AtomicExp, CompoundExp, isBoolExp, isVarRef, AppExp, makePrimOp, CExp, IfExp, ProcExp, LetExp, LitExp, LetrecExp, SetExp, Binding } from "./L4-ast";
 import { Result, makeFailure, makeOk, isOk } from "../shared/result";
-import { Graph, makeGraph, makeCompoundGraph, CompoundGraph, makeEdge, makeNodeDecl, Node, makeEdgeLabel, Edge, isNodeDecl, isNode, makeTD, graphContent, AtomicGraph, makeAtomicGraph, isAtomicGraph, isCompoundGraph, isEdge } from "./Mermaid-ast";
+import { Graph, makeGraph, makeCompoundGraph, CompoundGraph, makeEdge, makeNodeDecl, Node, makeEdgeLabel, Edge, isNodeDecl, isNode, makeTD, graphContent, AtomicGraph, makeAtomicGraph, isAtomicGraph, isCompoundGraph, isEdge, NodeRef } from "./Mermaid-ast";
 import { map, concat } from "ramda";
 import { SExpValue, isClosure, isSymbolSExp, isEmptySExp, isCompoundSExp, CompoundSExp } from "./L4-value";
 import { isNumber, isBoolean, isString, isUndefined } from "util";
@@ -33,6 +33,7 @@ const varGenEmpySExp = makeVarGen();
 const varGenSymbolSExp = makeVarGen();
 const varGenCompoundSExp = makeVarGen();
 const varGenSetExp = makeVarGen();
+const varGenProgram = makeVarGen();
 
 export const mapL4toMermaid = (exp: Parsed): Result<Graph> =>
     isExp(exp)? mapL4ExptoMermaid(exp) :
@@ -41,7 +42,7 @@ export const mapL4toMermaid = (exp: Parsed): Result<Graph> =>
 
     
 export const mapL4ExptoMermaid = (exp: Exp): Result<Graph> =>{
-   // isDefineExp(exp) ? mapL4ExptoMermaid(exp.val):
+   // isDefineExp(exp) ? mapL4ExptoMermaid(exp.val)://///////////////////////////////////////////////////////////test2
    if(isCExp(exp)){
     if(isAtomicExp(exp)){
         return makeOk(makeGraph(makeTD(),makeAtomicGraph(mapAtomicExp(exp).node)));
@@ -59,20 +60,22 @@ export const mapL4ExptoMermaid = (exp: Exp): Result<Graph> =>{
 // a.map(x => x.numbers).reduce((acc,curr) => acc.concat(curr), [])
 
 export const mapL4ProgramtoMermaid = (exp: Program): Result<Graph> =>{
-        const programGraphs :Result<Graph>[] =  map(x=>mapL4ExptoMermaid(x),exp.exps);
-        const programNode : Node = makeNodeDecl("Program","Program")
-        const programDownEdges:Edge[][] = map(x=>
+        const programNode : Node = makeNodeDecl(varGenProgram("Program"),"Program")
+        const expsGraphs :Result<Graph>[] =  map(x=>mapL4toMermaid(x),exp.exps);
+        const recExpsDownEdges:Edge[][] = map(x=>
                                               isOk(x)?
                                                     isAtomicGraph(x.value.graphContent)?
                                                         [makeEdge(programNode,x.value.graphContent.node)]:
                                                     isCompoundGraph(x.value.graphContent)?
                                                         x.value.graphContent.edges: 
                                                     [makeEdge(makeNodeDecl("Null","Null"),makeNodeDecl("Null","Null"))] :
-                                              [makeEdge(makeNodeDecl("Null","Null"),makeNodeDecl("Null","Null"))],programGraphs)
+                                              [makeEdge(makeNodeDecl("Null","Null"),makeNodeDecl("Null","Null"))],expsGraphs)
         // isAtomicGraph? => 
         // isCompoundGraph? => concat(graph.edges)
         //const programEdges :Edge[] = map(x=>makeEdge(programNode,),programGraphs)
-        const edges: Edge[] = programDownEdges.reduce((acc,curr) => acc.concat(curr), []);
+        const expsNodes : Node[] = recExpsDownEdges.map(x=>x[0].from)
+        const expsDownEdges: Edge[] = recExpsDownEdges.reduce((acc,curr) => acc.concat(curr), []);
+        const edges : Edge[] = expsNodes.map(x=>makeEdge(programNode,x)).concat(expsDownEdges)
        return makeOk(makeGraph(makeTD(),makeCompoundGraph(edges)))
 }
 
@@ -263,11 +266,15 @@ const mapL4SetToMermaid = (exp: SetExp): Edge[] =>{
     return edges
     
 }
-export const makeCexpEdges = (exp: CExp, prevNode: Node, label?:string): Edge[] => 
-    isAtomicExp(exp)? [makeEdge(prevNode, mapAtomicExp(exp).node,makeEdgeLabel(isUndefined(label)?"":label))]:
-    isCompoundExp(exp)? [makeEdge(prevNode,mapCompExp(exp).edges[0].from,makeEdgeLabel(isUndefined(label)?"":label))].concat(mapCompExp(exp).edges):
-    [makeEdge(makeNodeDecl("Null","Null"),makeNodeDecl("Null","Null"))];
-
+export const makeCexpEdges = (exp: CExp, prevNode: Node, label?:string): Edge[] =>{
+    if(isAtomicExp(exp)) 
+        return [makeEdge(prevNode, mapAtomicExp(exp).node,makeEdgeLabel(isUndefined(label)?"":label))]
+    else if(isCompoundExp(exp)){ 
+        const compGraph = mapCompExp(exp)
+        return [makeEdge(prevNode,compGraph.edges[0].from,makeEdgeLabel(isUndefined(label)?"":label))].concat(compGraph.edges)}
+    else
+        return [makeEdge(makeNodeDecl("Null","Null"),makeNodeDecl("Null","Null"))];
+    }
 
 /*
 // the original plan was to return a node, but something isnt working so lets try edge[]
