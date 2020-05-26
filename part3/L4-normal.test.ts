@@ -142,4 +142,9 @@ console.log("test 1\n")
         expect(bind(parseL4(`
             (L4 (if #t 3 (/ 100 0)))`), evalNormalProgram)).to.deep.equal(makeOk(3));
     });
+
+    it('Self test 2', () => {
+        expect(bind(parseL4(`
+            (L4 (if #t 3 (display 7)))`), evalNormalProgram)).to.deep.equal(makeOk(3));
+    });
 });
