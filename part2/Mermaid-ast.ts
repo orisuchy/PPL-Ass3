@@ -178,7 +178,7 @@ isOk(mermaidL45)?
     console.log(mermaidL45);
 
 console.log("\n\nTest 6\n\n")
-const str6 :string ="(L4 (define x (lambda(y) (- 3 y))))"
+const str6 :string ="(L4 (define square (lambda(x) (* x x))) (square 3))"
 
 const mermaidL46 = L4toMermaid(str6);
 isOk(mermaidL46)?

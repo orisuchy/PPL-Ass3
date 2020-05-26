@@ -13,7 +13,7 @@ describe('L4 Normal Eval', () => {
     });
 
     it('evaluates primitive procedures', () => {
-        expect(evalNormalParse("(+ 1 2)")).to.deep.equal(makeOk(3));
+        expect(evalNormalParse("(+ 1 2)")).to.deep.equal(makeOk(3))
         expect(evalNormalParse("(< 1 2)")).to.deep.equal(makeOk(true));
         expect(evalNormalParse("(not (> 1 2))")).to.deep.equal(makeOk(true));
         expect(evalNormalParse("(+ (* 2 2) 3)")).to.deep.equal(makeOk(7));

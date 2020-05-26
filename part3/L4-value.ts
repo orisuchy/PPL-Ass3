@@ -2,6 +2,7 @@
 // Value type definition for L4
 
 import { isPrimOp, CExp, PrimOp, VarDecl } from './L4-ast';
+//import { Env } from './L4-env-normal';
 import { Env } from './L4-env-normal';
 import { append } from 'ramda';
 import { isArray, isNumber, isString } from '../shared/type-predicates';
