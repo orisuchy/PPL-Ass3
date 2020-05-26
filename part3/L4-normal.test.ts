@@ -137,4 +137,9 @@ console.log("test 1\n")
                 (define g (lambda (x) 5))
                 (g (f 0)))`), evalNormalProgram)).to.deep.equal(makeOk(5));
     });
+
+    it('Self test 1', () => {
+        expect(bind(parseL4(`
+            (L4 (if #t 3 (/ 100 0)))`), evalNormalProgram)).to.deep.equal(makeOk(3));
+    });
 });
