@@ -60,7 +60,8 @@ const evalProc = (exp: ProcExp, env: Env): Result<Closure> =>
 // Check if need environment /////////////////////////////////////////////////////////////
 const applyProcedure = (proc: Value, args: CExp[], env: Env): Result<Value> =>
     //const normalArgs = args.map(x => normalEval(x,env))
-    isPrimOp(proc) ? safe2((appProc:PrimOp,appArgs:Value[])=>applyPrimitive(proc,appArgs))(makeOk(proc),mapResult(x => normalEval(x,env),args)):
+    isPrimOp(proc) ? safe2((appProc:PrimOp,appArgs:Value[])=>applyPrimitive(proc,appArgs))
+                            (makeOk(proc),mapResult(x => normalEval(x,env),args)):
     //isPrimOp(proc) ? map(bind(arg=>applyPrimitive(proc,arg)),normalArgs) :
     isClosure(proc) ? applyClosure(proc, args) :
     makeFailure(`Bad procedure ${JSON.stringify(proc)}`);

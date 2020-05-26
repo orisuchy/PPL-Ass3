@@ -11,7 +11,7 @@ describe('L4 Normal Eval', () => {
         expect(evalNormalParse("#t")).to.deep.equal(makeOk(true));
         expect(evalNormalParse("+")).to.deep.equal(makeOk(makePrimOp("+")));
     });
-
+console.log("test 1\n")
     it('evaluates primitive procedures', () => {
         expect(evalNormalParse("(+ 1 2)")).to.deep.equal(makeOk(3))
         expect(evalNormalParse("(< 1 2)")).to.deep.equal(makeOk(true));
