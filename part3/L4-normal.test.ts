@@ -145,6 +145,16 @@ console.log("test 1\n")
 
     it('Self test 2', () => {
         expect(bind(parseL4(`
-            (L4 (if #t 3 (display 7)))`), evalNormalProgram)).to.deep.equal(makeOk(3));
+            (L4 
+                (define y (lambda (x) (- x 3)))
+                (if #f (define x (-)) (y 4)))`), evalNormalProgram)).to.deep.equal(makeOk(1));
+    });
+
+    it('Self test 3', () => {
+        expect(bind(parseL4(`
+            (L4 
+                (define z (lambda (f x) (f x) ))
+                (define y (lambda (x) (z y x)))
+                (if (= 3 3) 5 (y 5)))`), evalNormalProgram)).to.deep.equal(makeOk(5));
     });
 });

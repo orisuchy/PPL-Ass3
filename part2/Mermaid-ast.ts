@@ -25,7 +25,6 @@ import { isUndefined } from "util";
 // <edgeLabel> ::= |<identifier>| // string
 
 // A value returned by parse
-//export type Parsed = Graph;
 export type graphContent = AtomicGraph | CompoundGraph;
 export type Node = NodeDecl | NodeRef;
 export type Dir = TD | LR;
@@ -33,8 +32,7 @@ export type Dir = TD | LR;
 export interface TD {tag:"TD"};
 export interface LR {tag:"LR"};
 export interface Graph {tag:"Graph"; dir: Dir, graphContent: graphContent}
-//Header needed????
-//export interface Header {tag: "Header"; graph: Graph; edges: Edge[]}
+
 export interface AtomicGraph {tag: "AtomicGraph"; node: NodeDecl; }
 export interface CompoundGraph {tag: "CompoundGraph"; edges: Edge[];}
 export interface Edge {tag: "Edge"; from: Node, to: Node, label?: EdgeLabel;}
@@ -121,8 +119,6 @@ export const getNodeLabel = (node: Node): string =>
     isNodeDecl(node)? node.label:
     "";
          
-       
-//TODO: is parseL4 the right function???
 
 export const L4toMermaid = (concrete: string): Result<string> => {
     let parsedL4Res :Result<Program> = parseL4(concrete);
@@ -138,50 +134,3 @@ export const L4toMermaid = (concrete: string): Result<string> => {
         return makeFailure("Failed to parse");
     
 }
-/////////////////////////////////////////////////Tests - Delete /////////////////////////////////////////////////
-// TODO: Delete no needed imports
-console.log("Test 1\n\n")
-const str :string ="(L4 (lambda (x y)((lambda (x) (+ x y))(+ x x))1)) "
-
-const mermaidL4 = L4toMermaid(str);
-isOk(mermaidL4)?
-    console.log(mermaidL4.value):
-    console.log(mermaidL4);
-
-console.log("\n\nTest 2\n\n")
-const str2 :string ="(L4 (define my-list '(1 2)))"
-
-const mermaidL42 = L4toMermaid(str2);
-isOk(mermaidL42)?
-    console.log(mermaidL42.value):
-    console.log(mermaidL42);
-
-console.log("\n\nTest 3\n\n")
-const str3 :string ="(L4 (* (+ 3 4) (+ 2 3)))"
-const mermaidL43 = L4toMermaid(str3);
-isOk(mermaidL43)?
-    console.log(mermaidL43.value):
-    console.log(mermaidL43);
-
-console.log("\n\nTest 4\n\n")
-const str4 :string ="(L4 (+ 3 4))"
-const mermaidL44 = L4toMermaid(str4);
-isOk(mermaidL44)?
-    console.log(mermaidL44.value):
-    console.log(mermaidL44);
-
-console.log("\n\nTest 5 - if\n\n")
-const str5 :string ="(L4 (if #t 3 4))"
-const mermaidL45 = L4toMermaid(str5);
-isOk(mermaidL45)?
-    console.log(mermaidL45.value):
-    console.log(mermaidL45);
-
-console.log("\n\nTest 6\n\n")
-const str6 :string ="(L4 (define square (lambda(x) (* x x))) (square 3))"
-
-const mermaidL46 = L4toMermaid(str6);
-isOk(mermaidL46)?
-    console.log(mermaidL46.value):
-    console.log(mermaidL46);
-

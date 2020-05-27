@@ -6,7 +6,7 @@ import { CExp, Exp, IfExp, Program, parseL4Exp, isLetExp, ProcExp,
         isAppExp, isBoolExp, isCExp, isDefineExp, isIfExp, isLitExp, isNumExp,
         isPrimOp, isProcExp, isStrExp, isVarRef,
         VarDecl, LetExp, Binding, LetrecExp, PrimOp } from "./L4-ast";
-import { applyEnv, makeEmptyEnv, Env, makeExtEnv, makeRecEnv } from './L4-env-normal';
+import { applyEnv, makeEmptyEnv, Env, makeExtEnv, EnvPair, makeEnvPair, makeProcEnv } from './L4-env-normal';
 import { applyPrimitive } from "./evalPrimitive";
 import { isClosure, makeClosure, Value, Closure } from "./L4-value";
 import { first, rest, isEmpty, allT } from '../shared/list';
@@ -31,18 +31,19 @@ export const evalNormalParse = (s: string): Result<Value> =>
 
 // copy paste started from here
 const normalEval = (exp: CExp, env: Env): Result<Value> =>
+    
     isNumExp(exp) ? makeOk(exp.val) :
     isBoolExp(exp) ? makeOk(exp.val) :
     isStrExp(exp) ? makeOk(exp.val) :
     isPrimOp(exp) ? makeOk(exp) :
-    isVarRef(exp) ? bind(applyEnv(env, exp.var), (x: CExp)=>normalEval(x,env)) :
+        //////////////////////////////////////added as pair//////////////////////////////////////////////////////
+    isVarRef(exp) ? bind(applyEnv(env, exp.var), (pair: EnvPair)=>normalEval(pair.value,pair.env)) :
     isLitExp(exp) ? makeOk(exp.val) :
     isIfExp(exp) ? evalIf(exp, env) :
     isProcExp(exp) ? evalProc(exp, env) :
     isLetExp(exp) ? evalLet(exp, env) :
     isAppExp(exp) ? safe2((proc: Value, args: CExp[]) => applyProcedure(proc, args, env))
                            (normalEval(exp.rator, env), mapResult((rand: CExp) => makeOk(rand), exp.rands)) :                    
-                        // (normalEval(exp.rator, env), mapResult((rand: CExp) => normalEval(rand, env), exp.rands)) :
     makeFailure(`Bad L4 AST ${exp}`);
 
 const isTrueValue = (x: Value): boolean =>
@@ -59,17 +60,17 @@ const evalProc = (exp: ProcExp, env: Env): Result<Closure> =>
 //      Instead we use the env of the closure.
 // Check if need environment /////////////////////////////////////////////////////////////
 const applyProcedure = (proc: Value, args: CExp[], env: Env): Result<Value> =>
-    //const normalArgs = args.map(x => normalEval(x,env))
     isPrimOp(proc) ? safe2((appProc:PrimOp,appArgs:Value[])=>applyPrimitive(proc,appArgs))
                             (makeOk(proc),mapResult(x => normalEval(x,env),args)):
-    //isPrimOp(proc) ? map(bind(arg=>applyPrimitive(proc,arg)),normalArgs) :
-    isClosure(proc) ? applyClosure(proc, args) :
+    isClosure(proc) ? applyClosure(proc, args, env) ://////////////added env for pair
     makeFailure(`Bad procedure ${JSON.stringify(proc)}`);
 
 
-const applyClosure = (proc: Closure, args: CExp[]): Result<Value> => {
-    const vars = map((v: VarDecl) => v.var, proc.params);
-    return evalExps(proc.body, makeExtEnv(vars, args, proc.env));
+const applyClosure = (proc: Closure, args: CExp[], env:Env): Result<Value> => {
+    const vars:string[] = map((v: VarDecl) => v.var, proc.params);
+    //////////////////////////////////////added as pair//////////////////////////////////////////////////////
+    const argsPairs:EnvPair[] = map((arg:CExp)=>makeEnvPair(arg,env),args)
+    return evalExps(proc.body, makeExtEnv(vars, argsPairs, proc.env));
 }
 
 // Evaluate a sequence of expressions (in a program)
@@ -87,7 +88,9 @@ const evalCExps = (first: Exp, rest: Exp[], env: Env): Result<Value> =>
 // Compute the rhs of the define, extend the env with the new binding
 // then compute the rest of the exps in the new env.
 const evalDefineExps = (def: Exp, exps: Exp[], env: Env): Result<Value> =>
-    isDefineExp(def) ? evalExps(exps, makeExtEnv([def.var.var], [def.val], env)):
+    isDefineExp(def) ? 
+        isProcExp(def.val)? evalExps(exps, makeProcEnv([def.var.var],[def.val],env)):///////added for pair
+        evalExps(exps, makeExtEnv([def.var.var], [makeEnvPair(def.val,env)], env)):///////added for pair
     makeFailure("Unexpected " + def);
     
 
@@ -101,8 +104,7 @@ export const evalParse = (s: string): Result<Value> =>
 // LET: Direct evaluation rule without syntax expansion
 // compute the values, extend the env, eval the body.
 const evalLet = (exp: LetExp, env: Env): Result<Value> => {
-    const vals = mapResult((b: Binding) => makeOk(b.val), exp.bindings);
-    // const vals = mapResult((v: CExp) => normalEval(v, env), map((b: Binding) => b.val, exp.bindings));
+    const vals = mapResult((b: Binding) => makeOk(makeEnvPair(b.val, env)), exp.bindings); ///////added for pair
     const vars = map((b: Binding) => b.var.var, exp.bindings);
-    return bind(vals, (vals: CExp[]) => evalExps(exp.body, makeExtEnv(vars, vals, env)));
+    return bind(vals, (vals: EnvPair[]) => evalExps(exp.body, makeExtEnv(vars, vals, env))); ///////added for pair
 }
