@@ -200,12 +200,12 @@ const mapL4LitToMermaid = (exp:LitExp): Edge[] =>{
 
 const mapL4SExpValueMermaid = (exp:SExpValue, prevNode :Node, label:string): Edge[] =>{
     //SExpValue = number | boolean | string | PrimOp | Closure | SymbolSExp | EmptySExp | CompoundSExp;
-    if(isNumber(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenNum("number"),"number"+"("+exp+")"),makeEdgeLabel(label))]
-    if(isBoolean(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenBool("boolean"),"boolean"+"("+exp+")"),makeEdgeLabel(label))]
-    if(isString(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenStr("string"),"string"+"("+exp+")"),makeEdgeLabel(label))]
-    if(isPrimOp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenPrimOp("PrimOp"),"PrimOp"+"("+exp+")"),makeEdgeLabel(label))]
+    if(isNumber(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenNum("number"),""+exp),makeEdgeLabel(label))]
+    if(isBoolean(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenBool("boolean"),""+exp),makeEdgeLabel(label))]
+    if(isString(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenStr("string"),exp),makeEdgeLabel(label))]
+    if(isPrimOp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenPrimOp("PrimOp"),exp.op),makeEdgeLabel(label))]
     if(isEmptySExp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenEmpySExp("EmptySExp"),"EmptySExp"),makeEdgeLabel(label))]
-    if(isSymbolSExp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenSymbolSExp("SymbolSExp"),"SymbolSExp"+"("+exp.val+")"),makeEdgeLabel(label))]  
+    if(isSymbolSExp(exp)) return [makeEdge(prevNode,makeNodeDecl(varGenSymbolSExp("SymbolSExp"),exp.val),makeEdgeLabel(label))]  
     if(isCompoundSExp(exp)){ 
     const compGraph = mapL4CompoundSExpToMermaid(exp)
     return [makeEdge(prevNode,compGraph[0].from,makeEdgeLabel(label))].concat(compGraph)}
